@@ -736,21 +736,65 @@
     // We can just use a fixed scale that works well.
     const startScale = 5.5;
     const endScale = 1.0;
-    
+    let effectiveEndScale = endScale;
+    let currentScale = startScale;
+    let panX = 0, panY = 0;
+    let isAtEnd = false;
+    let isPanning = false;
+    let dragStartX = 0, dragStartY = 0;
+    let panStartX = 0, panStartY = 0;
+
+    const applyTransform = () => {
+      wall.style.transform = `scale(${currentScale}) translate(${panX}px, ${panY}px)`;
+    };
+
+    const computeEffectiveEndScale = () => {
+      const naturalW = wall.offsetWidth;
+      if (naturalW > 0) {
+        effectiveEndScale = Math.min(endScale, window.innerWidth / naturalW);
+      }
+    };
+
+    const clampPan = () => {
+      const scaledW = wall.offsetWidth * currentScale;
+      const scaledH = wall.offsetHeight * currentScale;
+      const maxPanX = Math.max(0, (scaledW - window.innerWidth) / 2 / currentScale);
+      const maxPanY = Math.max(0, (scaledH - window.innerHeight) / 2 / currentScale);
+      panX = Math.max(-maxPanX, Math.min(maxPanX, panX));
+      panY = Math.max(-maxPanY, Math.min(maxPanY, panY));
+    };
+
     wall.style.transform = `scale(${startScale})`;
     searchContainer.style.opacity = '0';
     searchContainer.style.pointerEvents = 'none';
     if(hint) hint.style.opacity = '1';
-    
+    wall.style.cursor = '';
+
+    requestAnimationFrame(computeEffectiveEndScale);
+
     screen10.onscroll = () => {
       const { scrollTop, scrollHeight, clientHeight } = screen10;
       const progress = scrollTop / (scrollHeight - clientHeight || 1);
-      
+
       if(hint) hint.style.opacity = progress > 0.05 ? '0' : '1';
 
-      const currentScale = startScale - ((startScale - endScale) * progress);
-      wall.style.transform = `scale(${currentScale})`;
-      
+      if (effectiveEndScale >= endScale || wall.offsetWidth === 0) {
+        computeEffectiveEndScale();
+      }
+
+      currentScale = startScale - ((startScale - effectiveEndScale) * progress);
+
+      isAtEnd = progress >= 0.999;
+      if (!isAtEnd) {
+        panX = 0;
+        panY = 0;
+      } else {
+        clampPan();
+      }
+
+      applyTransform();
+      wall.style.cursor = isAtEnd ? (isPanning ? 'grabbing' : 'grab') : '';
+
       if (progress > 0.95) {
         searchContainer.style.opacity = '1';
         searchContainer.style.pointerEvents = 'auto';
@@ -759,6 +803,36 @@
         searchContainer.style.pointerEvents = 'none';
       }
     };
+
+    wall.onmousedown = (e) => {
+      if (!isAtEnd) return;
+      isPanning = true;
+      dragStartX = e.clientX;
+      dragStartY = e.clientY;
+      panStartX = panX;
+      panStartY = panY;
+      wall.style.cursor = 'grabbing';
+      e.preventDefault();
+    };
+
+    wall.onmousemove = (e) => {
+      if (!isPanning) return;
+      const dx = (e.clientX - dragStartX) / currentScale;
+      const dy = (e.clientY - dragStartY) / currentScale;
+      panX = panStartX + dx;
+      panY = panStartY + dy;
+      clampPan();
+      applyTransform();
+    };
+
+    const stopPan = () => {
+      if (!isPanning) return;
+      isPanning = false;
+      wall.style.cursor = isAtEnd ? 'grab' : '';
+    };
+
+    wall.onmouseup = stopPan;
+    wall.onmouseleave = stopPan;
     
     // Search functionality
     const searchInput = document.getElementById('drawer-search');
