@@ -302,7 +302,7 @@
     const count = sheetDataCache && typeof sheetDataCache.count === 'number'
       ? sheetDataCache.count
       : pastViewers.length;
-    state.userCode = (count + 1).toString().padStart(4, '0');
+    state.userCode = String(count + 1).padStart(4, '0');
     btnStart.disabled = false;
 
     initScreen1();

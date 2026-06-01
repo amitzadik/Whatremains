@@ -45,7 +45,7 @@ function doGet(e) {
       if (!row[1] && !row[3]) return;
       viewers.push({
         name: String(row[1] || ''),
-        code: String(row[3] || ''),
+        code: String(row[3] || '').padStart(4, '0'),
         legacy_text: String(row[11] || '')
       });
     });
@@ -89,11 +89,13 @@ function doPost(e) {
       return v;
     };
 
+    const codeStr = String(payload.code || '').padStart(4, '0');
+
     const row = [
       payload.timestamp || new Date().toISOString(),
       payload.name || '',
       payload.email || '',
-      payload.code || '',
+      "'" + codeStr,
       qVal('q1'), qVal('q2'), qVal('q3'), qVal('q4'),
       qVal('q5'), qVal('q6'), qVal('q7'),
       payload.legacy_text || ''
