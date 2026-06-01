@@ -71,13 +71,13 @@
       <div class="center-container" style="position: relative;">
         
         <!-- Envelope Back -->
-        <div id="env-back" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) translateY(100vh); width: 500px; height: 350px; background: #AC8969; border: 1px solid var(--line); z-index: 1;"></div>
-        
+        <div id="env-back" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) translateY(100vh); width: 650px; height: 450px; background: #AC8969; border: 1px solid var(--line); z-index: 1;"></div>
+
         <!-- Cards -->
-        <div id="stack-container" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; z-index: 2;"></div>
-        
+        <div id="stack-container" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 2;"></div>
+
         <!-- Envelope Front (Flap & Stamp) -->
-        <div id="env-front" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) translateY(100vh); width: 500px; height: 350px; z-index: 3; pointer-events: none;">
+        <div id="env-front" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) translateY(100vh); width: 650px; height: 450px; z-index: 3; pointer-events: none;">
             <div id="env-flap" style="position: absolute; top: 0; left: 0; width: 100%; height: 50%; background: #AC8969; border-bottom: 1px solid var(--line); transform-origin: top; border-left: 1px solid var(--line); border-right: 1px solid var(--line);"></div>
             <div id="stamp-1" class="stamp" style="opacity: 0;"></div>
         </div>
@@ -400,14 +400,14 @@
         <div class="q-answer-row" style="border-bottom: none; flex: 1;">
           <span class="q-label">תשובה</span>
           <div class="q-ruled-area" style="display:flex; padding-top: 10px;">
-            ${isDk ? '<span style="color:var(--red); font-size:4rem; margin:auto;">X</span>' : state.answers[i]}
+            ${isDk ? '' : state.answers[i]}
           </div>
         </div>
       `;
       card.style.top = '50%';
-      card.style.marginTop = '-160px'; // half height of 320px
+      card.style.marginTop = '-200px'; // half height of 400px
       card.style.left = '50%';
-      card.style.marginLeft = '-240px'; // half width of 480px
+      card.style.marginLeft = '-300px'; // half width of 600px
       // Add a random final offset
       card.dataset.finalX = (Math.random() * 10 - 5).toFixed(1);
       card.dataset.finalY = ((Math.random() * 10 - 5) + (i * 3)).toFixed(1); // stack slightly downwards

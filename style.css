@@ -171,7 +171,7 @@
   #stack-container { position: relative; width: 100%; max-width: 400px; height: 50vh; margin: auto; perspective: 1000px; }
   .card {
     position: absolute;
-    width: 480px; height: 320px;
+    width: 600px; height: 400px;
     background: var(--bg-cream);
     border: 1px solid var(--gray);
     box-shadow: 0 4px 10px rgba(0,0,0,0.05);
