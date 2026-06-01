@@ -11,7 +11,7 @@
  */
 
 const SHEET_ID = '1nC7UoBpLItL0vOwDJkOE9II7YPeHp48cbBdmDGq_U_w';
-const SHEET_NAME = 'Sheet1';
+const SHEET_NAME = 'data';
 const HEADERS = [
   'timestamp', 'name', 'email', 'code',
   'q1', 'q2', 'q3', 'q4', 'q5', 'q6', 'q7',
