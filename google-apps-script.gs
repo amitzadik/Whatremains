@@ -52,9 +52,17 @@ function doGet(e) {
   }
 
   const result = { count: viewers.length, viewers: viewers };
+  const json = JSON.stringify(result);
+
+  if (e && e.parameter && e.parameter.callback) {
+    const callback = String(e.parameter.callback).replace(/[^a-zA-Z0-9_$]/g, '');
+    return ContentService
+      .createTextOutput(callback + '(' + json + ')')
+      .setMimeType(ContentService.MimeType.JAVASCRIPT);
+  }
 
   return ContentService
-    .createTextOutput(JSON.stringify(result))
+    .createTextOutput(json)
     .setMimeType(ContentService.MimeType.JSON);
 }
 

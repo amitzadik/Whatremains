@@ -545,17 +545,40 @@
 
   let sheetDataCache = null;
 
-  async function fetchSheetData() {
-    try {
-      const res = await fetch(SHEET_WEBHOOK);
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      const data = await res.json();
-      sheetDataCache = data;
-      return data;
-    } catch (e) {
-      console.error('Failed to fetch sheet:', e);
-      return null;
-    }
+  function fetchSheetData() {
+    return new Promise((resolve) => {
+      const callbackName = '__sheetCallback_' + Date.now() + '_' + Math.floor(Math.random() * 100000);
+      const script = document.createElement('script');
+      let timeoutId;
+
+      const cleanup = () => {
+        try { delete window[callbackName]; } catch (e) { window[callbackName] = undefined; }
+        if (script.parentNode) script.parentNode.removeChild(script);
+        if (timeoutId) clearTimeout(timeoutId);
+      };
+
+      window[callbackName] = (data) => {
+        sheetDataCache = data;
+        cleanup();
+        resolve(data);
+      };
+
+      script.onerror = () => {
+        console.error('JSONP request failed');
+        cleanup();
+        resolve(null);
+      };
+
+      timeoutId = setTimeout(() => {
+        console.error('JSONP request timeout');
+        cleanup();
+        resolve(null);
+      }, 10000);
+
+      const sep = SHEET_WEBHOOK.includes('?') ? '&' : '?';
+      script.src = SHEET_WEBHOOK + sep + 'callback=' + callbackName;
+      document.head.appendChild(script);
+    });
   }
 
   const initialFetchPromise = fetchSheetData();
