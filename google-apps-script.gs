@@ -59,38 +59,47 @@ function doGet(e) {
 }
 
 function doPost(e) {
-  const sheet = getSheet_();
-  ensureHeaders_(sheet);
-
-  let payload = {};
   try {
-    payload = JSON.parse(e.postData.contents);
-  } catch (err) {
+    const sheet = getSheet_();
+    ensureHeaders_(sheet);
+
+    let payload = {};
+    if (e && e.postData && e.postData.contents) {
+      try {
+        payload = JSON.parse(e.postData.contents);
+      } catch (err) {
+        Logger.log('JSON parse failed; raw contents: ' + e.postData.contents);
+      }
+    } else if (e && e.parameter) {
+      payload = e.parameter;
+    }
+
+    const dk = 'לא יודע/ת';
+    const qVal = function (key) {
+      const v = payload[key];
+      if (v === null || v === undefined || v === '') return dk;
+      return v;
+    };
+
+    const row = [
+      payload.timestamp || new Date().toISOString(),
+      payload.name || '',
+      payload.email || '',
+      payload.code || '',
+      qVal('q1'), qVal('q2'), qVal('q3'), qVal('q4'),
+      qVal('q5'), qVal('q6'), qVal('q7'),
+      payload.legacy_text || ''
+    ];
+
+    sheet.appendRow(row);
+
     return ContentService
-      .createTextOutput(JSON.stringify({ ok: false, error: 'Invalid JSON' }))
+      .createTextOutput(JSON.stringify({ ok: true, row: row }))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    Logger.log('doPost error: ' + err);
+    return ContentService
+      .createTextOutput(JSON.stringify({ ok: false, error: String(err) }))
       .setMimeType(ContentService.MimeType.JSON);
   }
-
-  const dk = 'לא יודע/ת';
-  const qVal = function (key) {
-    const v = payload[key];
-    if (v === null || v === undefined || v === '') return dk;
-    return v;
-  };
-
-  const row = [
-    payload.timestamp || new Date().toISOString(),
-    payload.name || '',
-    payload.email || '',
-    payload.code || '',
-    qVal('q1'), qVal('q2'), qVal('q3'), qVal('q4'),
-    qVal('q5'), qVal('q6'), qVal('q7'),
-    payload.legacy_text || ''
-  ];
-
-  sheet.appendRow(row);
-
-  return ContentService
-    .createTextOutput(JSON.stringify({ ok: true }))
-    .setMimeType(ContentService.MimeType.JSON);
 }
