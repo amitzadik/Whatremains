@@ -562,12 +562,15 @@
 
   async function saveToSheet(data) {
     try {
-      await fetch(SHEET_WEBHOOK, {
+      const payload = data;
+      console.log('שולח נתונים ל-webhook:', SHEET_WEBHOOK);
+      console.log('payload:', payload);
+      const response = await fetch(SHEET_WEBHOOK, {
         method: 'POST',
         mode: 'no-cors',
-        body: JSON.stringify(data)
+        body: JSON.stringify(payload)
       });
-      console.log('Saved to sheet:', data);
+      console.log('תגובה מה-webhook:', response);
     } catch (e) {
       console.error('Failed to save:', e);
     }
