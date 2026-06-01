@@ -314,9 +314,12 @@
   const btnNextQ = document.getElementById('btn-next-q');
   const btnDkQ = document.getElementById('btn-dk-q');
 
+  const qCard = document.querySelector('#screen-1 .q-card');
+
   function initScreen1() {
     qDate.innerText = state.date;
     qName.innerText = state.name;
+    qCard.classList.remove('exit-up', 'enter-from-below');
     renderQuestion();
   }
 
@@ -325,33 +328,57 @@
     qNum.innerText = (idx + 1) + '/' + questions.length;
     qText.innerText = questions[idx];
     qInput.value = '';
+    btnNextQ.disabled = true;
     qInput.focus();
   }
+
+  qInput.addEventListener('input', () => {
+    btnNextQ.disabled = qInput.value.trim() === '';
+  });
 
   function handleAnswer(isDontKnow) {
     state.answers[state.currentQuestion] = isDontKnow ? null : qInput.value;
     state.dontKnow[state.currentQuestion] = isDontKnow;
-    
-    const s1 = document.getElementById('screen-1');
-    s1.style.opacity = '0';
+
+    btnNextQ.disabled = true;
+    btnDkQ.disabled = true;
+
+    qCard.classList.add('exit-up');
+
     setTimeout(() => {
       state.currentQuestion++;
-      if (state.currentQuestion < questions.length) {
-        renderQuestion();
-        s1.style.opacity = '1';
-      } else {
-        s1.style.opacity = '1'; 
+
+      if (state.currentQuestion >= questions.length) {
+        qCard.classList.remove('exit-up');
+        btnDkQ.disabled = false;
         initScreen2();
         showScreen(2);
+        return;
       }
-    }, 700);
+
+      renderQuestion();
+      qCard.classList.remove('exit-up');
+      qCard.classList.add('enter-from-below');
+
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          qCard.classList.remove('enter-from-below');
+        });
+      });
+
+      setTimeout(() => {
+        btnDkQ.disabled = false;
+      }, 550);
+    }, 500);
   }
 
   btnNextQ.addEventListener('click', () => {
-    if(qInput.value.trim() === '') return;
+    if (btnNextQ.disabled) return;
+    if (qInput.value.trim() === '') return;
     handleAnswer(false);
   });
   btnDkQ.addEventListener('click', () => {
+    if (btnDkQ.disabled) return;
     handleAnswer(true);
   });
 
