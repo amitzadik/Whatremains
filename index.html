@@ -293,13 +293,17 @@
   nameInput.addEventListener('input', checkStartBtn);
   emailInput.addEventListener('input', checkStartBtn);
   
-  btnStart.addEventListener('click', () => {
+  btnStart.addEventListener('click', async () => {
     state.name = nameInput.value.trim();
     state.email = emailInput.value.trim();
-    
-    // Generate code (e.g. 0009 based on past viewers length + 1)
-    const codeNum = pastViewers.length + 1;
-    state.userCode = codeNum.toString().padStart(4, '0');
+
+    btnStart.disabled = true;
+    await initialFetchPromise;
+    const count = sheetDataCache && typeof sheetDataCache.count === 'number'
+      ? sheetDataCache.count
+      : pastViewers.length;
+    state.userCode = (count + 1).toString().padStart(4, '0');
+    btnStart.disabled = false;
 
     initScreen1();
     showScreen(1);
@@ -538,6 +542,24 @@
   });
 
   const SHEET_WEBHOOK = 'YOUR_GOOGLE_APPS_SCRIPT_URL_HERE';
+
+  let sheetDataCache = null;
+
+  async function fetchSheetData() {
+    try {
+      const res = await fetch(SHEET_WEBHOOK);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      sheetDataCache = data;
+      return data;
+    } catch (e) {
+      console.error('Failed to fetch sheet:', e);
+      return null;
+    }
+  }
+
+  const initialFetchPromise = fetchSheetData();
+
   async function saveToSheet(data) {
     try {
       await fetch(SHEET_WEBHOOK, {
@@ -557,14 +579,20 @@
     if(txt !== '') {
       state.legacyText = txt;
       
+      const mapAnswer = (i) => state.dontKnow[i] ? "לא יודע/ת" : (state.answers[i] || '');
       const dataToSave = {
+        timestamp: new Date().toISOString(),
         name: state.name,
         email: state.email,
-        timestamp: new Date().toISOString(),
-        answers: state.answers.map((ans, i) => state.dontKnow[i] ? "לא יודע/ת" : ans),
-        legacyText: state.legacyText,
-        userCode: state.userCode,
-        hasAudio: false
+        code: state.userCode,
+        q1: mapAnswer(0),
+        q2: mapAnswer(1),
+        q3: mapAnswer(2),
+        q4: mapAnswer(3),
+        q5: mapAnswer(4),
+        q6: mapAnswer(5),
+        q7: mapAnswer(6),
+        legacy_text: state.legacyText
       };
       saveToSheet(dataToSave);
       
@@ -666,26 +694,56 @@
 
   
   // --- Screen 10 (Grid Zoom & Search) ---
-  function initScreen10() {
+  async function initScreen10() {
     const wall = document.getElementById('zoom-wall');
+    const gridContainer = document.getElementById('grid-container');
     wall.innerHTML = '';
-    
-    // We want a 5x5 grid (25 drawers). The user's drawer will be at index 12 (center).
+
+    // Loading indicator
+    let loadingEl = document.getElementById('wall-loading');
+    if (!loadingEl) {
+      loadingEl = document.createElement('div');
+      loadingEl.id = 'wall-loading';
+      loadingEl.style.cssText = 'position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 2rem; color: var(--gray); z-index: 15;';
+      gridContainer.appendChild(loadingEl);
+    }
+    loadingEl.innerText = 'טוען...';
+    loadingEl.style.display = 'block';
+
     const totalDrawers = 25;
     const centerIndex = 12;
-    
-    // Fill viewers
-    let viewersPool = [...pastViewers];
-    // Duplicate randomly if we don't have enough to fill 24 slots
-    while(viewersPool.length < 24) {
-      viewersPool.push(pastViewers[Math.floor(Math.random() * pastViewers.length)]);
+    const slotsForOthers = totalDrawers - 1;
+
+    // Fetch fresh data; fall back to pastViewers on failure
+    const data = await fetchSheetData();
+
+    let rawViewers;
+    if (data && Array.isArray(data.viewers) && data.viewers.length > 0) {
+      rawViewers = data.viewers
+        .filter(v => v && v.code !== state.userCode && v.name)
+        .map(v => ({ name: v.name, code: v.code, archive: v.legacy_text || '' }));
+    } else {
+      rawViewers = pastViewers.map(v => ({ name: v.name, code: v.code, archive: v.archive }));
     }
-    // Shuffle
+
+    if (rawViewers.length === 0) {
+      rawViewers = pastViewers.map(v => ({ name: v.name, code: v.code, archive: v.archive }));
+    }
+
+    let viewersPool = rawViewers.length > slotsForOthers
+      ? rawViewers.slice(-slotsForOthers)
+      : [...rawViewers];
+
+    while (viewersPool.length < slotsForOthers) {
+      viewersPool.push(rawViewers[Math.floor(Math.random() * rawViewers.length)]);
+    }
     viewersPool = viewersPool.sort(() => Math.random() - 0.5);
-    
+
+    loadingEl.style.display = 'none';
+
     let allDrawers = [];
     let poolIndex = 0;
-    
+
     for (let i = 0; i < totalDrawers; i++) {
       if (i === centerIndex) {
         allDrawers.push({ name: state.name, code: state.userCode, archive: state.legacyText, isUser: true, audioBlob: state.audioBlob });
