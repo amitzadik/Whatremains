@@ -405,15 +405,15 @@
     const answeredCount = state.dontKnow.filter(x => !x).length;
     stamp.innerText = `${answeredCount} מתוך 7`;
 
-    // Hard reset envelope state: hidden, at center, flap open, no transitions
+    // Hard reset envelope state: below viewport, flap open, no transitions
     envBack.style.transition = 'none';
     envFront.style.transition = 'none';
     envFlap.style.transition = 'none';
     stamp.style.transition = 'none';
-    envBack.style.opacity = '0';
-    envFront.style.opacity = '0';
-    envBack.style.transform = `translate(-50%, -50%)`;
-    envFront.style.transform = `translate(-50%, -50%)`;
+    envBack.style.opacity = '1';
+    envFront.style.opacity = '1';
+    envBack.style.transform = `translate(-50%, -50%) translateY(100vh)`;
+    envFront.style.transform = `translate(-50%, -50%) translateY(100vh)`;
     envFlap.style.transform = `rotateX(0deg)`;
     stamp.style.opacity = '0';
     stamp.style.transform = `translate(-50%, -50%) scale(2) rotate(-5deg)`;
@@ -479,13 +479,14 @@
       const hint = document.getElementById('scroll-hint-2');
       if(hint) hint.style.opacity = progress > 0.05 ? '0' : '1';
 
-      // 1. Envelope fade in, open (0.0 to 0.20)
+      // 1. Envelope rising from below, open (0.0 to 0.20)
       let envProg = progress / 0.20;
       envProg = Math.max(0, Math.min(1, envProg));
       const envEase = 1 - Math.pow(1 - envProg, 3); // easeOut
+      const envY = 100 - (100 * envEase); // from 100vh up to 0
 
-      envBack.style.opacity = envEase.toFixed(3);
-      envFront.style.opacity = envEase.toFixed(3);
+      envBack.style.transform = `translate(-50%, -50%) translateY(${envY}vh)`;
+      envFront.style.transform = `translate(-50%, -50%) translateY(${envY}vh)`;
 
       // 2. Cards falling into envelope (0.20 to 0.75)
       const cardsPhaseStart = 0.20;
