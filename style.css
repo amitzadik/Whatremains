@@ -177,7 +177,7 @@
   .sticky-container { position: sticky; top: 0; height: 100vh; width: 100%; overflow: hidden; display: flex; flex-direction: column; justify-content: center; flex-shrink: 0; }
   .scroll-spacer { width: 100%; pointer-events: none; flex-shrink: 0; }
   /* Override padding for scroll screens */
-  #screen-2, #screen-3, #screen-10 { padding: 0; }
+  #screen-2, #screen-3, #screen-8, #screen-10 { padding: 0; }
 
   /* Screen 2 Stack */
   #stack-container { position: relative; width: 100%; max-width: 400px; height: 50vh; margin: auto; perspective: 1000px; }
