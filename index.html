@@ -396,14 +396,27 @@
   function initScreen2() {
     const container = document.getElementById('stack-container');
     container.innerHTML = '';
-    
+
     const envBack = document.getElementById('env-back');
     const envFront = document.getElementById('env-front');
     const envFlap = document.getElementById('env-flap');
     const stamp = document.getElementById('stamp-1');
-    
+
     const answeredCount = state.dontKnow.filter(x => !x).length;
     stamp.innerText = `${answeredCount} מתוך 7`;
+
+    // Hard reset envelope state: hidden, at center, flap open, no transitions
+    envBack.style.transition = 'none';
+    envFront.style.transition = 'none';
+    envFlap.style.transition = 'none';
+    stamp.style.transition = 'none';
+    envBack.style.opacity = '0';
+    envFront.style.opacity = '0';
+    envBack.style.transform = `translate(-50%, -50%)`;
+    envFront.style.transform = `translate(-50%, -50%)`;
+    envFlap.style.transform = `rotateX(0deg)`;
+    stamp.style.opacity = '0';
+    stamp.style.transform = `translate(-50%, -50%) scale(2) rotate(-5deg)`;
     
     const cards = [];
     questions.forEach((q, i) => {
@@ -466,14 +479,13 @@
       const hint = document.getElementById('scroll-hint-2');
       if(hint) hint.style.opacity = progress > 0.05 ? '0' : '1';
 
-      // 1. Envelope rising open (0.0 to 0.20)
+      // 1. Envelope fade in, open (0.0 to 0.20)
       let envProg = progress / 0.20;
       envProg = Math.max(0, Math.min(1, envProg));
       const envEase = 1 - Math.pow(1 - envProg, 3); // easeOut
-      const envY = 100 - (100 * envEase); // from 100vh down to 0
 
-      envBack.style.transform = `translate(-50%, -50%) translateY(${envY}vh)`;
-      envFront.style.transform = `translate(-50%, -50%) translateY(${envY}vh)`;
+      envBack.style.opacity = envEase.toFixed(3);
+      envFront.style.opacity = envEase.toFixed(3);
 
       // 2. Cards falling into envelope (0.20 to 0.75)
       const cardsPhaseStart = 0.20;
