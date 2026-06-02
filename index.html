@@ -157,14 +157,20 @@
 
   <!-- Screen 8: Envelope Return -->
   <div id="screen-8" class="screen">
-    <div class="center-container">
-      <div class="envelope-wrapper">
-        <div class="envelope" id="envelope-2">
-          <div class="envelope-flap"></div>
-          <div class="stamp" id="stamp-2" style="font-size: 1.8rem; letter-spacing: 2px;"></div>
+    <div class="sticky-container">
+      <div class="center-container" style="position: relative;">
+        <div class="envelope-wrapper">
+          <div class="envelope" id="envelope-2">
+            <div class="envelope-flap"></div>
+            <div class="stamp" id="stamp-2" style="font-size: 1.8rem; letter-spacing: 2px;"></div>
+          </div>
+        </div>
+        <div id="scroll-hint-8" style="position: absolute; bottom: 10%; width: 100%; text-align: center; color: var(--gray); font-size: 1.5rem; animation: pulse 2s infinite; z-index: 10;">
+          ↓ גלול/י למטה ↓
         </div>
       </div>
     </div>
+    <div class="scroll-spacer" style="height: 200vh;"></div>
   </div>
 
   <!-- Screen 9: Postcard Print -->
@@ -442,14 +448,8 @@
       // Add a random final offset
       card.dataset.finalX = (Math.random() * 10 - 5).toFixed(1);
       card.dataset.finalY = ((Math.random() * 10 - 5) + (i * 3)).toFixed(1); // stack slightly downwards
-      
-      if (i === 0) {
-        card.style.transform = `translate(${card.dataset.finalX}px, ${card.dataset.finalY}px) rotate(${rot}deg)`;
-        card.style.opacity = '1';
-      } else {
-        card.style.transform = `translateY(-150vh) rotate(-10deg)`;
-        card.style.opacity = '0';
-      }
+      card.style.transform = `translateY(-150vh) rotate(-10deg)`;
+      card.style.opacity = '0';
       container.appendChild(card);
       cards.push(card);
     });
@@ -461,22 +461,31 @@
     screen2.onscroll = () => {
       const { scrollTop, scrollHeight, clientHeight } = screen2;
       const progress = scrollTop / (scrollHeight - clientHeight || 1);
-      
+
       const numCards = cards.length;
       const hint = document.getElementById('scroll-hint-2');
       if(hint) hint.style.opacity = progress > 0.05 ? '0' : '1';
 
-      // 1. Cards falling (0.0 to 0.7)
-      const cardsPhaseEnd = 0.7;
-      cards.forEach((card, i) => {
-        if (i === 0) return; // First card is already in place
+      // 1. Envelope rising open (0.0 to 0.20)
+      let envProg = progress / 0.20;
+      envProg = Math.max(0, Math.min(1, envProg));
+      const envEase = 1 - Math.pow(1 - envProg, 3); // easeOut
+      const envY = 100 - (100 * envEase); // from 100vh down to 0
 
-        const startP = ((i - 1) / (numCards - 1)) * cardsPhaseEnd;
-        const endP = startP + (cardsPhaseEnd / (numCards - 1));
-        
+      envBack.style.transform = `translate(-50%, -50%) translateY(${envY}vh)`;
+      envFront.style.transform = `translate(-50%, -50%) translateY(${envY}vh)`;
+
+      // 2. Cards falling into envelope (0.20 to 0.75)
+      const cardsPhaseStart = 0.20;
+      const cardsPhaseEnd = 0.75;
+      const cardsPhaseLen = cardsPhaseEnd - cardsPhaseStart;
+      cards.forEach((card, i) => {
+        const startP = cardsPhaseStart + (i / numCards) * cardsPhaseLen;
+        const endP = startP + (cardsPhaseLen / numCards);
+
         let cardProg = (progress - startP) / (endP - startP);
         cardProg = Math.max(0, Math.min(1, cardProg));
-        
+
         const easeProg = 1 - Math.pow(1 - cardProg, 3);
         const yVh = -150 + (150 * easeProg);
         const yPx = parseFloat(card.dataset.finalY) * easeProg;
@@ -486,26 +495,17 @@
         card.style.opacity = cardProg > 0.05 ? '1' : '0';
       });
 
-      // 2. Envelope moving up (0.7 to 0.85)
-      let envProg = (progress - 0.7) / 0.15;
-      envProg = Math.max(0, Math.min(1, envProg));
-      const envEase = 1 - Math.pow(1 - envProg, 3); // easeOut
-      const envY = 100 - (100 * envEase); // from 100vh down to 0
-      
-      envBack.style.transform = `translate(-50%, -50%) translateY(${envY}vh)`;
-      envFront.style.transform = `translate(-50%, -50%) translateY(${envY}vh)`;
-      
-      // 3. Envelope flap closing (0.85 to 0.95)
-      let flapProg = (progress - 0.85) / 0.10;
+      // 3. Envelope flap closing (0.75 to 0.90)
+      let flapProg = (progress - 0.75) / 0.15;
       flapProg = Math.max(0, Math.min(1, flapProg));
       envFlap.style.transform = `rotateX(${180 * flapProg}deg)`;
       // Fix visual glitch: border color changes/hides to simulate seamless fold
       if (flapProg > 0.5) {
         envFlap.style.backgroundColor = '#AC8969';
       }
-      
-      // 4. Stamp appearing (0.93 to 1.0)
-      let stampProg = (progress - 0.93) / 0.07;
+
+      // 4. Stamp appearing (0.90 to 1.0)
+      let stampProg = (progress - 0.90) / 0.10;
       stampProg = Math.max(0, Math.min(1, stampProg));
       stamp.style.opacity = stampProg;
       stamp.style.transform = `translate(-50%, -50%) scale(${2 - stampProg}) rotate(-5deg)`;
@@ -692,18 +692,48 @@
   // --- Screen 8 ---
   function initScreen8() {
     const envelope = document.getElementById('envelope-2');
+    const flap = envelope.querySelector('.envelope-flap');
+    const stamp2 = document.getElementById('stamp-2');
+
+    // Envelope already closed on screen (no entrance animation)
     envelope.classList.remove('up', 'closed');
-    setTimeout(() => {
-      envelope.classList.add('up');
-      setTimeout(() => {
-        envelope.classList.add('closed');
-        document.getElementById('stamp-2').innerText = state.userCode;
-        setTimeout(() => {
-          initScreen9();
-          showScreen(9);
-        }, 3500);
-      }, 1200);
-    }, 200);
+    envelope.style.transition = 'none';
+    envelope.style.bottom = '0';
+    flap.style.transition = 'none';
+    flap.style.transform = 'rotateX(180deg)';
+
+    const answeredCount = state.dontKnow.filter(x => !x).length;
+    stamp2.innerText = `${answeredCount} מתוך 7`;
+    stamp2.style.transition = 'none';
+    stamp2.style.opacity = '0';
+    stamp2.style.transform = 'scale(2) rotate(-20deg)';
+
+    const screen8 = document.getElementById('screen-8');
+    screen8.scrollTop = 0;
+    const hint8 = document.getElementById('scroll-hint-8');
+    if (hint8) hint8.style.opacity = '1';
+
+    let transitioned = false;
+    screen8.onscroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = screen8;
+      const progress = scrollTop / (scrollHeight - clientHeight || 1);
+
+      if (hint8) hint8.style.opacity = progress > 0.05 ? '0' : '1';
+
+      // Stamp appearing (0.10 to 0.90)
+      let stampProg = (progress - 0.10) / 0.80;
+      stampProg = Math.max(0, Math.min(1, stampProg));
+      const eased = 1 - Math.pow(1 - stampProg, 2);
+      stamp2.style.opacity = (0.9 * eased).toFixed(3);
+      stamp2.style.transform = `scale(${(2 - eased).toFixed(3)}) rotate(${(-20 + 15 * eased).toFixed(2)}deg)`;
+
+      if (progress >= 0.999 && !transitioned) {
+        transitioned = true;
+        initScreen9();
+        showScreen(9);
+      }
+    };
+    screen8.dispatchEvent(new Event('scroll'));
   }
 
   // --- Screen 9 ---
