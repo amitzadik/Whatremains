@@ -85,22 +85,15 @@
         <div id="scroll-hint-2" style="position: absolute; bottom: 10%; width: 100%; text-align: center; color: var(--gray); font-size: 1.5rem; animation: pulse 2s infinite; z-index: 10;">
           ↓ גלול/י למטה ↓
         </div>
+
+        <div id="summary-overlay" style="position: absolute; bottom: 4%; left: 50%; transform: translateX(-50%); width: 100%; max-width: 700px; text-align: center; opacity: 0; pointer-events: none; transition: opacity 0.5s ease; z-index: 6;">
+          <div class="summary-stat" id="sum-text-1"></div>
+          <div class="red-text bold" id="sum-text-2" style="font-size: 1.5rem; margin-bottom: 2rem;"></div>
+          <button id="btn-sum-next">המשך</button>
+        </div>
       </div>
     </div>
     <div class="scroll-spacer" style="height: 400vh;"></div>
-  </div>
-
-  
-
-  <!-- Screen 5: Summary -->
-  <div id="screen-5" class="screen">
-    <div class="center-container">
-      <div class="summary-text">
-        <div class="summary-stat" id="sum-text-1"></div>
-        <div class="red-text bold" id="sum-text-2" style="font-size: 1.5rem; margin-bottom: 3rem;"></div>
-        <button id="btn-sum-next">המשך</button>
-      </div>
-    </div>
   </div>
 
   <!-- Screen 6: Legacy -->
@@ -153,24 +146,6 @@
         </div>
       </div>
     </div>
-  </div>
-
-  <!-- Screen 8: Envelope Return -->
-  <div id="screen-8" class="screen">
-    <div class="sticky-container">
-      <div class="center-container" style="position: relative;">
-        <div class="envelope-wrapper">
-          <div class="envelope" id="envelope-2">
-            <div class="envelope-flap"></div>
-            <div class="stamp" id="stamp-2" style="font-size: 1.8rem; letter-spacing: 2px;"></div>
-          </div>
-        </div>
-        <div id="scroll-hint-8" style="position: absolute; bottom: 10%; width: 100%; text-align: center; color: var(--gray); font-size: 1.5rem; animation: pulse 2s infinite; z-index: 10;">
-          ↓ גלול/י למטה ↓
-        </div>
-      </div>
-    </div>
-    <div class="scroll-spacer" style="height: 200vh;"></div>
   </div>
 
   <!-- Screen 9: Postcard Print -->
@@ -320,12 +295,9 @@
   const btnNextQ = document.getElementById('btn-next-q');
   const btnDkQ = document.getElementById('btn-dk-q');
 
-  const qCard = document.querySelector('#screen-1 .q-card');
-
   function initScreen1() {
     qDate.innerText = state.date;
     qName.innerText = state.name;
-    qCard.classList.remove('exit-up', 'enter-from-below');
     renderQuestion();
   }
 
@@ -345,37 +317,15 @@
   function handleAnswer(isDontKnow) {
     state.answers[state.currentQuestion] = isDontKnow ? null : qInput.value;
     state.dontKnow[state.currentQuestion] = isDontKnow;
+    state.currentQuestion++;
 
-    btnNextQ.disabled = true;
-    btnDkQ.disabled = true;
+    if (state.currentQuestion >= questions.length) {
+      initScreen2();
+      showScreen(2);
+      return;
+    }
 
-    qCard.classList.add('exit-up');
-
-    setTimeout(() => {
-      state.currentQuestion++;
-
-      if (state.currentQuestion >= questions.length) {
-        qCard.classList.remove('exit-up');
-        btnDkQ.disabled = false;
-        initScreen2();
-        showScreen(2);
-        return;
-      }
-
-      renderQuestion();
-      qCard.classList.remove('exit-up');
-      qCard.classList.add('enter-from-below');
-
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          qCard.classList.remove('enter-from-below');
-        });
-      });
-
-      setTimeout(() => {
-        btnDkQ.disabled = false;
-      }, 550);
-    }, 500);
+    renderQuestion();
   }
 
   btnNextQ.addEventListener('click', () => {
@@ -397,9 +347,23 @@
     const envFront = document.getElementById('env-front');
     const envFlap = document.getElementById('env-flap');
     const stamp = document.getElementById('stamp-1');
+    const summaryOverlay = document.getElementById('summary-overlay');
 
     const answeredCount = state.dontKnow.filter(x => !x).length;
     stamp.innerText = `${answeredCount} מתוך 7`;
+
+    // Populate summary text in-place (no separate screen 5)
+    const dkCount = state.dontKnow.filter(x => x).length;
+    const pct = Math.round((dkCount / 7) * 100);
+    if (dkCount > 0) {
+      document.getElementById('sum-text-1').innerText = `${dkCount} מתוך 7 דברים על סבא וסבתא — נשארו ריקים.`;
+      document.getElementById('sum-text-2').innerText = `${pct}% מהמידע — לא עבר.`;
+    } else {
+      document.getElementById('sum-text-1').innerText = `ענית על הכל.`;
+      document.getElementById('sum-text-2').innerText = `את.ה היחיד.ה.`;
+    }
+    summaryOverlay.style.opacity = '0';
+    summaryOverlay.style.pointerEvents = 'none';
 
     // Hard reset envelope state: below viewport, flap open, no transitions
     envBack.style.transition = 'none';
@@ -411,9 +375,10 @@
     envBack.style.transform = `translate(-50%, -50%) translateY(100vh)`;
     envFront.style.transform = `translate(-50%, -50%) translateY(100vh)`;
     envFlap.style.transform = `rotateX(0deg)`;
+    envFlap.style.backgroundColor = '#AC8969';
     stamp.style.opacity = '0';
     stamp.style.transform = `translate(-50%, -50%) scale(2) rotate(-5deg)`;
-    
+
     const cards = [];
     questions.forEach((q, i) => {
       const card = document.createElement('div');
@@ -422,7 +387,7 @@
       card.dataset.rot = rot;
       card.style.zIndex = i;
       card.style.position = 'absolute';
-      
+
       const isDk = state.dontKnow[i];
       card.innerHTML = `
         <div class="q-header-row">
@@ -451,12 +416,11 @@
         </div>
       `;
       card.style.top = '50%';
-      card.style.marginTop = '-200px'; // half height of 400px
+      card.style.marginTop = '-200px';
       card.style.left = '50%';
-      card.style.marginLeft = '-300px'; // half width of 600px
-      // Add a random final offset
+      card.style.marginLeft = '-300px';
       card.dataset.finalX = (Math.random() * 10 - 5).toFixed(1);
-      card.dataset.finalY = ((Math.random() * 10 - 5) + (i * 3)).toFixed(1); // stack slightly downwards
+      card.dataset.finalY = ((Math.random() * 10 - 5) + (i * 3)).toFixed(1);
       card.style.transform = `translateY(-150vh) rotate(-10deg)`;
       card.style.opacity = '0';
       container.appendChild(card);
@@ -465,8 +429,7 @@
 
     const screen2 = document.getElementById('screen-2');
     screen2.scrollTop = 0;
-    
-    let transitioned = false;
+
     screen2.onscroll = () => {
       const { scrollTop, scrollHeight, clientHeight } = screen2;
       const progress = scrollTop / (scrollHeight - clientHeight || 1);
@@ -475,26 +438,15 @@
       const hint = document.getElementById('scroll-hint-2');
       if(hint) hint.style.opacity = progress > 0.05 ? '0' : '1';
 
-      // 1. Envelope rising from below, open (0.0 to 0.20)
-      let envProg = progress / 0.20;
-      envProg = Math.max(0, Math.min(1, envProg));
-      const envEase = 1 - Math.pow(1 - envProg, 3); // easeOut
-      const envY = 100 - (100 * envEase); // from 100vh up to 0
-
-      envBack.style.transform = `translate(-50%, -50%) translateY(${envY}vh)`;
-      envFront.style.transform = `translate(-50%, -50%) translateY(${envY}vh)`;
-
-      // 2. Cards falling into envelope (0.20 to 0.75)
-      const cardsPhaseStart = 0.20;
-      const cardsPhaseEnd = 0.75;
+      // 1. Cards falling onto screen first (0.0 to 0.45)
+      const cardsPhaseStart = 0.0;
+      const cardsPhaseEnd = 0.45;
       const cardsPhaseLen = cardsPhaseEnd - cardsPhaseStart;
       cards.forEach((card, i) => {
         const startP = cardsPhaseStart + (i / numCards) * cardsPhaseLen;
         const endP = startP + (cardsPhaseLen / numCards);
-
         let cardProg = (progress - startP) / (endP - startP);
         cardProg = Math.max(0, Math.min(1, cardProg));
-
         const easeProg = 1 - Math.pow(1 - cardProg, 3);
         const yVh = -150 + (150 * easeProg);
         const yPx = parseFloat(card.dataset.finalY) * easeProg;
@@ -504,25 +456,32 @@
         card.style.opacity = cardProg > 0.05 ? '1' : '0';
       });
 
-      // 3. Envelope flap closing (0.75 to 0.90)
-      let flapProg = (progress - 0.75) / 0.15;
+      // 2. Envelope rises from below to wrap the cards (0.45 to 0.60)
+      let envProg = (progress - 0.45) / 0.15;
+      envProg = Math.max(0, Math.min(1, envProg));
+      const envEase = 1 - Math.pow(1 - envProg, 3);
+      const envY = 100 - (100 * envEase);
+      envBack.style.transform = `translate(-50%, -50%) translateY(${envY}vh)`;
+      envFront.style.transform = `translate(-50%, -50%) translateY(${envY}vh)`;
+
+      // 3. Envelope flap closing — wrapping the cards (0.60 to 0.85)
+      let flapProg = (progress - 0.60) / 0.25;
       flapProg = Math.max(0, Math.min(1, flapProg));
       envFlap.style.transform = `rotateX(${180 * flapProg}deg)`;
-      // Fix visual glitch: border color changes/hides to simulate seamless fold
-      if (flapProg > 0.5) {
-        envFlap.style.backgroundColor = '#AC8969';
-      }
 
-      // 4. Stamp appearing (0.90 to 1.0)
-      let stampProg = (progress - 0.90) / 0.10;
+      // 4. Stamp appearing (0.85 to 0.95) — only after envelope fully sealed
+      let stampProg = (progress - 0.85) / 0.10;
       stampProg = Math.max(0, Math.min(1, stampProg));
       stamp.style.opacity = stampProg;
       stamp.style.transform = `translate(-50%, -50%) scale(${2 - stampProg}) rotate(-5deg)`;
 
-      if (progress >= 0.999 && !transitioned) {
-        transitioned = true;
-        initScreen5();
-        showScreen(5);
+      // 5. Summary text + continue button (0.96+) — only after stamp full
+      if (progress > 0.96) {
+        summaryOverlay.style.opacity = '1';
+        summaryOverlay.style.pointerEvents = 'auto';
+      } else {
+        summaryOverlay.style.opacity = '0';
+        summaryOverlay.style.pointerEvents = 'none';
       }
     };
     screen2.dispatchEvent(new Event('scroll'));
@@ -531,19 +490,7 @@
   
   
 
-  // --- Screen 5 ---
-  function initScreen5() {
-    const dkCount = state.dontKnow.filter(x => x).length;
-    const pct = Math.round((dkCount / 7) * 100);
-    
-    if (dkCount > 0) {
-      document.getElementById('sum-text-1').innerText = `${dkCount} מתוך 7 דברים על סבא וסבתא — נשארו ריקים.`;
-      document.getElementById('sum-text-2').innerText = `${pct}% מהמידע — לא עבר.`;
-    } else {
-      document.getElementById('sum-text-1').innerText = `ענית על הכל.`;
-      document.getElementById('sum-text-2').innerText = `את.ה היחיד.ה.`;
-    }
-  }
+  // --- Summary continue (lives on screen 2 overlay) ---
   document.getElementById('btn-sum-next').addEventListener('click', () => {
     document.getElementById('legacy-name').innerText = state.name;
     document.getElementById('legacy-date').innerText = state.date;
@@ -694,56 +641,9 @@
   });
   
   document.getElementById('btn-audio-next').addEventListener('click', () => {
-    initScreen8();
-    showScreen(8);
+    initScreen9();
+    showScreen(9);
   });
-
-  // --- Screen 8 ---
-  function initScreen8() {
-    const envelope = document.getElementById('envelope-2');
-    const flap = envelope.querySelector('.envelope-flap');
-    const stamp2 = document.getElementById('stamp-2');
-
-    // Envelope already closed on screen (no entrance animation)
-    envelope.classList.remove('up', 'closed');
-    envelope.style.transition = 'none';
-    envelope.style.bottom = '0';
-    flap.style.transition = 'none';
-    flap.style.transform = 'rotateX(180deg)';
-
-    const answeredCount = state.dontKnow.filter(x => !x).length;
-    stamp2.innerText = `${answeredCount} מתוך 7`;
-    stamp2.style.transition = 'none';
-    stamp2.style.opacity = '0';
-    stamp2.style.transform = 'scale(2) rotate(-20deg)';
-
-    const screen8 = document.getElementById('screen-8');
-    screen8.scrollTop = 0;
-    const hint8 = document.getElementById('scroll-hint-8');
-    if (hint8) hint8.style.opacity = '1';
-
-    let transitioned = false;
-    screen8.onscroll = () => {
-      const { scrollTop, scrollHeight, clientHeight } = screen8;
-      const progress = scrollTop / (scrollHeight - clientHeight || 1);
-
-      if (hint8) hint8.style.opacity = progress > 0.05 ? '0' : '1';
-
-      // Stamp appearing (0.10 to 0.90)
-      let stampProg = (progress - 0.10) / 0.80;
-      stampProg = Math.max(0, Math.min(1, stampProg));
-      const eased = 1 - Math.pow(1 - stampProg, 2);
-      stamp2.style.opacity = (0.9 * eased).toFixed(3);
-      stamp2.style.transform = `scale(${(2 - eased).toFixed(3)}) rotate(${(-20 + 15 * eased).toFixed(2)}deg)`;
-
-      if (progress >= 0.999 && !transitioned) {
-        transitioned = true;
-        initScreen9();
-        showScreen(9);
-      }
-    };
-    screen8.dispatchEvent(new Event('scroll'));
-  }
 
   // --- Screen 9 ---
   function initScreen9() {

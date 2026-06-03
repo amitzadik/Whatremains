@@ -133,18 +133,6 @@
   /* Screen 1 & 6 specific (Card Design) */
   #screen-1, #screen-6 { padding: 2vh 2vw; }
   .q-card { width: 100%; height: 100%; max-width: none; margin: 0; background-color: var(--bg-cream); border: 1px solid var(--gray); display: flex; flex-direction: column; padding: 1.5rem; }
-  .q-card {
-    transition: transform 0.5s cubic-bezier(0.55, 0, 1, 0.45), opacity 0.5s ease;
-  }
-  .q-card.exit-up {
-    transform: translateY(-110vh);
-    opacity: 0;
-  }
-  .q-card.enter-from-below {
-    transform: translateY(110vh);
-    opacity: 0;
-    transition: none;
-  }
   
   .q-header-row { display: flex; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 0.5rem 0; margin-bottom: 2rem; }
   .q-header-row .q-cell { border-left: 1px solid var(--line); padding: 0 1rem; flex: 1; display: flex; flex-direction: column; justify-content: flex-start; text-align: right; }
