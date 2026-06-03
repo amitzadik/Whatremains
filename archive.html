@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ארכיון לנכדים — מה שישאר</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  html, body { margin: 0; background-color: var(--bg-cream); color: var(--ink); font-family: var(--font-main); min-height: 100vh; }
+  .archive-page { padding: 3rem 2rem 5rem; max-width: 1400px; margin: 0 auto; }
+  .archive-header { text-align: center; margin-bottom: 3rem; }
+  .archive-title { font-size: 2.5rem; color: var(--ink); margin-bottom: 0.5rem; font-weight: bold; }
+  .archive-sub { color: var(--gray); font-size: 1.05rem; }
+  .archive-count { color: var(--red); font-size: 0.95rem; margin-top: 0.6rem; letter-spacing: 0.1rem; }
+  .archive-wall { display: grid; grid-template-columns: repeat(auto-fill, 220px); gap: 18px; justify-content: center; }
+  .loading-msg, .empty-msg { text-align: center; color: var(--gray); font-size: 1.3rem; padding: 4rem 0; grid-column: 1 / -1; }
+  .archive-footer { text-align: center; margin-top: 4rem; color: var(--gray); font-size: 0.9rem; }
+  .archive-footer a { color: var(--ink); text-decoration: underline; }
+</style>
+</head>
+<body>
+  <div class="archive-page">
+    <div class="archive-header">
+      <div class="archive-title">ארכיון לנכדים</div>
+      <div class="archive-sub">לחצ/י על מגירה והזינ/י את הקוד שלה כדי לראות את התוכן</div>
+      <div class="archive-count" id="count-text"></div>
+    </div>
+    <div id="wall" class="archive-wall">
+      <div class="loading-msg" id="loading">טוען...</div>
+    </div>
+    <div class="archive-footer">
+      <a href="index.html">→ להשתתפות חדשה</a>
+    </div>
+  </div>
+
+  <!-- Code modal -->
+  <div id="code-modal" class="modal-overlay">
+    <div class="modal-content" id="code-modal-content">
+      <div class="title">הזן קוד (4 ספרות)</div>
+      <div class="label" id="code-target" style="margin-bottom: 1rem; color: var(--ink);"></div>
+      <input type="text" id="drawer-code-input" class="input-field input-ltr" maxlength="4" inputmode="numeric" pattern="[0-9]*" style="text-align:center; font-size:2.5rem; letter-spacing:0.8rem; margin-bottom: 0;">
+      <div id="err-msg" style="color: var(--red); min-height: 1.5rem; padding-top: 0.5rem;"></div>
+      <div class="btn-group" style="justify-content:center; padding-top: 1rem;">
+        <button id="btn-submit-code">פתח</button>
+        <button id="btn-close-code">סגור</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Content modal -->
+  <div id="content-modal" class="modal-overlay">
+    <div class="modal-content" style="max-width: 500px; text-align: right;">
+      <div class="label" id="content-name" style="margin-bottom: 1.5rem; font-size: 1.1rem; border-bottom: 1px solid var(--line); padding-bottom: 0.5rem;"></div>
+      <div class="serif-text" id="content-text" style="font-size: 1.8rem; line-height: 1.5; margin-bottom: 2rem; margin-top: 1rem;"></div>
+      <div style="display:flex; justify-content: space-between; align-items: center; gap: 1rem;">
+        <a id="content-drawer-link" href="#" style="color: var(--ink); text-decoration: underline; font-family: var(--font-main); font-size: 1rem;">למגירה האישית ←</a>
+        <button id="btn-close-content">חזור לקיר</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const SHEET_WEBHOOK = 'https://script.google.com/macros/s/AKfycbzPZdQbMz7QKjqode6d88XgTsSBRFkjHo9dHm-mFnFD5j9ql5j3-yR1D64LTF2gf9I7/exec';
+
+    let viewers = [];
+    let activeViewer = null;
+    let activeDrawerEl = null;
+
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    function fetchSheetData() {
+      return new Promise((resolve) => {
+        const callbackName = '__archiveCallback_' + Date.now() + '_' + Math.floor(Math.random() * 100000);
+        const script = document.createElement('script');
+        let timeoutId;
+
+        const cleanup = () => {
+          try { delete window[callbackName]; } catch (e) { window[callbackName] = undefined; }
+          if (script.parentNode) script.parentNode.removeChild(script);
+          if (timeoutId) clearTimeout(timeoutId);
+        };
+
+        window[callbackName] = (data) => { cleanup(); resolve(data); };
+        script.onerror = () => { cleanup(); resolve(null); };
+        timeoutId = setTimeout(() => { cleanup(); resolve(null); }, 10000);
+
+        const sep = SHEET_WEBHOOK.includes('?') ? '&' : '?';
+        script.src = SHEET_WEBHOOK + sep + 'callback=' + callbackName;
+        document.head.appendChild(script);
+      });
+    }
+
+    function renderWall(data) {
+      const wall = document.getElementById('wall');
+      wall.innerHTML = '';
+
+      if (!data || !Array.isArray(data.viewers) || data.viewers.length === 0) {
+        wall.innerHTML = '<div class="empty-msg">אין עדיין משתתפים בארכיון.</div>';
+        document.getElementById('count-text').innerText = '';
+        return;
+      }
+
+      viewers = data.viewers
+        .filter(v => v && v.name)
+        .map(v => ({
+          name: String(v.name || ''),
+          code: String(v.code || '').padStart(4, '0'),
+          archive: String(v.legacy_text || '')
+        }));
+
+      document.getElementById('count-text').innerText = `${viewers.length} מגירות בארכיון`;
+
+      viewers.forEach(v => {
+        const d = document.createElement('div');
+        d.className = 'wall-drawer';
+        d.innerHTML = `<div class="wall-plate">${escapeHtml(v.name)}</div>`;
+        d.addEventListener('click', () => openCodeModal(v, d));
+        wall.appendChild(d);
+      });
+    }
+
+    function openCodeModal(viewer, drawerEl) {
+      activeViewer = viewer;
+      activeDrawerEl = drawerEl;
+      document.getElementById('code-target').innerText = `המגירה של ${viewer.name}`;
+      document.getElementById('drawer-code-input').value = '';
+      document.getElementById('err-msg').innerText = '';
+      document.getElementById('code-modal').classList.add('active');
+      setTimeout(() => document.getElementById('drawer-code-input').focus(), 50);
+    }
+
+    function checkCode() {
+      const input = document.getElementById('drawer-code-input').value.trim();
+      if (input === activeViewer.code) {
+        document.getElementById('code-modal').classList.remove('active');
+        setTimeout(() => showContent(activeViewer), 300);
+      } else {
+        document.getElementById('err-msg').innerText = "קוד שגוי";
+        const modalContent = document.getElementById('code-modal-content');
+        modalContent.classList.remove('shake');
+        void modalContent.offsetWidth;
+        modalContent.classList.add('shake');
+
+        if (activeDrawerEl) {
+          activeDrawerEl.classList.remove('shake');
+          void activeDrawerEl.offsetWidth;
+          activeDrawerEl.classList.add('shake');
+        }
+      }
+    }
+
+    function showContent(viewer) {
+      document.getElementById('content-name').innerText = "מגירה של " + viewer.name + " · קוד " + viewer.code;
+      document.getElementById('content-text').innerText = viewer.archive || '(אין טקסט מורשת)';
+      const link = document.getElementById('content-drawer-link');
+      link.href = 'drawer.html?code=' + encodeURIComponent(viewer.code);
+      document.getElementById('content-modal').classList.add('active');
+    }
+
+    document.getElementById('btn-close-code').addEventListener('click', () => {
+      document.getElementById('code-modal').classList.remove('active');
+    });
+    document.getElementById('btn-submit-code').addEventListener('click', checkCode);
+    document.getElementById('drawer-code-input').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') checkCode();
+    });
+    document.getElementById('btn-close-content').addEventListener('click', () => {
+      document.getElementById('content-modal').classList.remove('active');
+    });
+
+    fetchSheetData().then(renderWall);
+  </script>
+</body>
+</html>

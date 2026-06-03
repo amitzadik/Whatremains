@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>מגירה אישית — מה שישאר</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  html, body { margin: 0; background-color: var(--bg-cream); color: var(--ink); font-family: var(--font-main); min-height: 100vh; }
+  .drawer-page { padding: 3rem 2rem 6rem; max-width: 900px; margin: 0 auto; }
+  .drawer-header { text-align: center; margin-bottom: 2.5rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--line); }
+  .drawer-name { font-size: 2.5rem; color: var(--ink); font-weight: bold; margin-bottom: 0.5rem; }
+  .drawer-code-label { color: var(--red); font-size: 1rem; letter-spacing: 0.3rem; }
+  .drawer-section { margin-bottom: 2.5rem; }
+  .section-label { color: var(--gray); font-size: 0.95rem; margin-bottom: 0.8rem; letter-spacing: 0.05rem; }
+  .legacy-text { font-family: var(--font-serif); font-size: 1.9rem; line-height: 1.5; color: var(--ink); }
+  .q-list { list-style: none; padding: 0; margin: 0; }
+  .q-item { margin-bottom: 1.2rem; padding-bottom: 1rem; border-bottom: 1px dashed var(--line); }
+  .q-item:last-child { border-bottom: none; }
+  .q-item-q { color: var(--gray); font-size: 0.95rem; margin-bottom: 0.4rem; }
+  .q-item-a { font-size: 1.2rem; color: var(--ink); }
+  .q-item-a.dk { color: var(--red); font-style: italic; }
+  .additions-list { display: flex; flex-direction: column; gap: 1rem; }
+  .addition-card { padding: 1rem 1.2rem; border: 1px solid var(--line); background: rgba(255,255,255,0.35); }
+  .addition-meta { font-size: 0.8rem; color: var(--gray); margin-bottom: 0.6rem; letter-spacing: 0.03rem; }
+  .addition-content img { max-width: 100%; border: 1px solid var(--line); display: block; }
+  .addition-content audio { width: 100%; }
+  .addition-content .text-body { font-size: 1.1rem; line-height: 1.5; color: var(--ink); white-space: pre-wrap; }
+  .add-section { border-top: 2px solid var(--ink); margin-top: 3rem; padding-top: 2rem; }
+  .add-tabs { display: flex; gap: 0.5rem; margin-bottom: 1.2rem; }
+  .tab-btn { background: transparent; border: 1px solid var(--line); padding: 0.5rem 1.2rem; cursor: pointer; font-family: var(--font-main); color: var(--ink); font-size: 1rem; transition: background 0.2s, color 0.2s; }
+  .tab-btn.active { border-color: var(--ink); background: var(--ink); color: var(--bg-cream); }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+  .file-input-wrap { border: 1px dashed var(--line); padding: 1.5rem; text-align: center; background: rgba(255,255,255,0.2); }
+  .recording-controls { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
+  .preview-area { margin-top: 1rem; }
+  .preview-area img, .preview-area audio { max-width: 100%; max-height: 240px; }
+  .submit-bar { display: flex; justify-content: flex-end; margin-top: 1rem; }
+  .loading-msg, .error-msg { text-align: center; color: var(--gray); font-size: 1.4rem; padding: 4rem 0; }
+  .error-msg { color: var(--red); }
+  textarea.story-input { width: 100%; min-height: 140px; padding: 1rem; box-sizing: border-box; font-family: var(--font-main); font-size: 1.1rem; border: 1px solid var(--line); background: rgba(255,255,255,0.35); resize: vertical; color: var(--ink); line-height: 1.5; }
+  textarea.story-input:focus { outline: none; border-color: var(--ink); }
+  .add-msg { margin-top: 1rem; text-align: right; font-size: 0.95rem; min-height: 1.5rem; }
+  .add-msg.success { color: var(--ink); }
+  .add-msg.error { color: var(--red); }
+  .drawer-footer { text-align: center; margin-top: 4rem; color: var(--gray); font-size: 0.9rem; }
+  .drawer-footer a { color: var(--ink); text-decoration: underline; }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+</style>
+</head>
+<body>
+  <div class="drawer-page" id="page">
+    <div class="loading-msg" id="loading">טוען...</div>
+  </div>
+
+  <template id="drawer-template">
+    <div class="drawer-header">
+      <div class="drawer-name" id="t-name"></div>
+      <div class="drawer-code-label">קוד <span id="t-code"></span></div>
+    </div>
+
+    <div class="drawer-section">
+      <div class="section-label">המורשת</div>
+      <div class="legacy-text" id="t-legacy"></div>
+    </div>
+
+    <div class="drawer-section">
+      <div class="section-label">תשובות לשבע השאלות</div>
+      <ol class="q-list" id="t-questions"></ol>
+    </div>
+
+    <div class="drawer-section" id="additions-section">
+      <div class="section-label">תוספות מהמבקרים</div>
+      <div class="additions-list" id="t-additions"></div>
+    </div>
+
+    <div class="add-section">
+      <div class="section-label" style="color: var(--ink); font-size: 1.05rem;">הוסיפ/י תוכן למגירה הזו</div>
+      <div class="add-tabs">
+        <button class="tab-btn active" data-tab="text">סיפור חופשי</button>
+        <button class="tab-btn" data-tab="image">תמונה</button>
+        <button class="tab-btn" data-tab="audio">הקלטה</button>
+      </div>
+
+      <div class="tab-panel active" data-panel="text">
+        <textarea class="story-input" id="story-input" placeholder="כתבו סיפור, זיכרון או הערה למגירה..."></textarea>
+        <div class="submit-bar"><button id="submit-text">שלחי</button></div>
+      </div>
+
+      <div class="tab-panel" data-panel="image">
+        <div class="file-input-wrap">
+          <input type="file" id="image-input" accept="image/*" style="display:none;">
+          <button id="pick-image">בחר/י תמונה</button>
+          <div style="color: var(--gray); font-size: 0.85rem; margin-top: 0.5rem;">עד 200KB · תמונה תישמר מקודדת ב-base64</div>
+          <div class="preview-area" id="image-preview"></div>
+        </div>
+        <div class="submit-bar"><button id="submit-image" disabled>שלחי</button></div>
+      </div>
+
+      <div class="tab-panel" data-panel="audio">
+        <div class="recording-controls">
+          <button id="mic-rec">🎙️ התחל/י הקלטה</button>
+          <span id="rec-status" class="label" style="font-size: 0.95rem; color: var(--gray);"></span>
+        </div>
+        <div style="color: var(--gray); font-size: 0.85rem; margin-top: 0.5rem;">עד 200KB · הקלטה תישמר מקודדת ב-base64. כדאי להישאר תחת 30 שניות.</div>
+        <div class="preview-area" id="audio-preview"></div>
+        <div class="submit-bar"><button id="submit-audio" disabled>שלחי</button></div>
+      </div>
+
+      <div class="add-msg" id="add-msg"></div>
+    </div>
+
+    <div class="drawer-footer">
+      <a href="archive.html">→ חזרה לארכיון המלא</a>
+    </div>
+  </template>
+
+  <script>
+    const SHEET_WEBHOOK = 'https://script.google.com/macros/s/AKfycbzPZdQbMz7QKjqode6d88XgTsSBRFkjHo9dHm-mFnFD5j9ql5j3-yR1D64LTF2gf9I7/exec';
+    const MAX_PAYLOAD_BYTES = 200 * 1024;
+
+    const questions = [
+      "באיזו שפה סבא וסבתא דיברו בבית?",
+      "מה סבא אהב לעשות?",
+      "מה גרם לסבתא לצחוק?",
+      "ממה סבא פחד?",
+      "על מה סבתא חלמה ולא הגשימה?",
+      "על מה סבא לא דיבר?",
+      "מתי נולד סבא?"
+    ];
+
+    const params = new URLSearchParams(window.location.search);
+    const rawCode = (params.get('code') || '').trim();
+    const code = /^\d{1,4}$/.test(rawCode) ? rawCode.padStart(4, '0') : '';
+
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    function fetchByCode(c) {
+      return new Promise((resolve) => {
+        const callbackName = '__drawerCallback_' + Date.now() + '_' + Math.floor(Math.random() * 100000);
+        const script = document.createElement('script');
+        let timeoutId;
+        const cleanup = () => {
+          try { delete window[callbackName]; } catch (e) { window[callbackName] = undefined; }
+          if (script.parentNode) script.parentNode.removeChild(script);
+          if (timeoutId) clearTimeout(timeoutId);
+        };
+        window[callbackName] = (data) => { cleanup(); resolve(data); };
+        script.onerror = () => { cleanup(); resolve(null); };
+        timeoutId = setTimeout(() => { cleanup(); resolve(null); }, 12000);
+        const sep = SHEET_WEBHOOK.includes('?') ? '&' : '?';
+        script.src = SHEET_WEBHOOK + sep + 'callback=' + callbackName + '&code=' + encodeURIComponent(c);
+        document.head.appendChild(script);
+      });
+    }
+
+    async function saveAddition(payload) {
+      try {
+        await fetch(SHEET_WEBHOOK, {
+          method: 'POST',
+          mode: 'no-cors',
+          body: JSON.stringify(payload)
+        });
+        return true;
+      } catch (e) {
+        console.error('Failed to save addition:', e);
+        return false;
+      }
+    }
+
+    function renderDrawer(record) {
+      const page = document.getElementById('page');
+      const template = document.getElementById('drawer-template');
+      page.innerHTML = '';
+      page.appendChild(template.content.cloneNode(true));
+
+      document.getElementById('t-name').innerText = record.name || '(ללא שם)';
+      document.getElementById('t-code').innerText = record.code || code;
+      document.getElementById('t-legacy').innerText = record.legacy_text || '(אין טקסט מורשת)';
+
+      const qList = document.getElementById('t-questions');
+      questions.forEach((q, i) => {
+        const ans = String(record['q' + (i + 1)] || '');
+        const li = document.createElement('li');
+        li.className = 'q-item';
+        const isDk = ans === 'לא יודע/ת';
+        li.innerHTML =
+          `<div class="q-item-q">${i + 1}. ${escapeHtml(q)}</div>` +
+          `<div class="q-item-a${isDk ? ' dk' : ''}">${escapeHtml(ans || '(אין תשובה)')}</div>`;
+        qList.appendChild(li);
+      });
+
+      renderAdditions(Array.isArray(record.additions) ? record.additions : []);
+      setupTabs();
+      setupAddHandlers(record.code || code);
+    }
+
+    function renderAdditions(additions) {
+      const el = document.getElementById('t-additions');
+      el.innerHTML = '';
+      if (additions.length === 0) {
+        el.innerHTML = '<div style="color: var(--gray); font-size: 0.95rem;">אין עדיין תוספות. הוסיפ/י את הראשונה למטה.</div>';
+        return;
+      }
+      additions.forEach(a => {
+        const card = document.createElement('div');
+        card.className = 'addition-card';
+        let ts = '';
+        if (a.timestamp) {
+          try { ts = new Date(a.timestamp).toLocaleString('he-IL'); }
+          catch (e) { ts = String(a.timestamp); }
+        }
+        let body = '';
+        const content = String(a.content || '');
+        if (a.type === 'image' && content) {
+          body = `<img src="${escapeHtml(content)}" alt="">`;
+        } else if (a.type === 'audio' && content) {
+          body = `<audio controls src="${escapeHtml(content)}"></audio>`;
+        } else {
+          body = `<div class="text-body">${escapeHtml(content)}</div>`;
+        }
+        const typeLabel = { text: 'סיפור', image: 'תמונה', audio: 'הקלטה' }[a.type] || a.type || 'תוכן';
+        card.innerHTML =
+          `<div class="addition-meta">${escapeHtml(ts)} · ${escapeHtml(typeLabel)}</div>` +
+          `<div class="addition-content">${body}</div>`;
+        el.appendChild(card);
+      });
+    }
+
+    function setupTabs() {
+      const buttons = document.querySelectorAll('.tab-btn');
+      const panels = document.querySelectorAll('.tab-panel');
+      buttons.forEach(b => {
+        b.addEventListener('click', () => {
+          buttons.forEach(x => x.classList.remove('active'));
+          panels.forEach(x => x.classList.remove('active'));
+          b.classList.add('active');
+          const target = document.querySelector('.tab-panel[data-panel="' + b.dataset.tab + '"]');
+          if (target) target.classList.add('active');
+        });
+      });
+    }
+
+    function setMsg(text, kind) {
+      const m = document.getElementById('add-msg');
+      m.innerText = text;
+      m.classList.remove('success', 'error');
+      if (kind) m.classList.add(kind);
+    }
+
+    function setupAddHandlers(codeStr) {
+      // --- Text ---
+      const storyInput = document.getElementById('story-input');
+      document.getElementById('submit-text').addEventListener('click', async () => {
+        const text = storyInput.value.trim();
+        if (!text) { setMsg('יש למלא טקסט.', 'error'); return; }
+        setMsg('שולחת…');
+        await saveAddition({ action: 'add', code: codeStr, type: 'text', content: text, timestamp: new Date().toISOString() });
+        setMsg('נשמר. רענני את הדף כדי לראות.', 'success');
+        storyInput.value = '';
+      });
+
+      // --- Image ---
+      const imgInput = document.getElementById('image-input');
+      let imageDataUrl = null;
+      document.getElementById('pick-image').addEventListener('click', () => imgInput.click());
+      imgInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        if (file.size > MAX_PAYLOAD_BYTES) {
+          setMsg('התמונה גדולה מ-200KB. נסי לכווץ.', 'error');
+          imageDataUrl = null;
+          document.getElementById('submit-image').disabled = true;
+          document.getElementById('image-preview').innerHTML = '';
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = () => {
+          imageDataUrl = reader.result;
+          document.getElementById('image-preview').innerHTML =
+            '<img src="' + escapeHtml(imageDataUrl) + '">';
+          document.getElementById('submit-image').disabled = false;
+          setMsg('');
+        };
+        reader.readAsDataURL(file);
+      });
+      document.getElementById('submit-image').addEventListener('click', async () => {
+        if (!imageDataUrl) return;
+        setMsg('שולחת…');
+        await saveAddition({ action: 'add', code: codeStr, type: 'image', content: imageDataUrl, timestamp: new Date().toISOString() });
+        setMsg('נשמר. רענני את הדף כדי לראות.', 'success');
+        document.getElementById('image-preview').innerHTML = '';
+        imageDataUrl = null;
+        document.getElementById('submit-image').disabled = true;
+        imgInput.value = '';
+      });
+
+      // --- Audio ---
+      let mediaRecorder = null;
+      let audioChunks = [];
+      let audioBlob = null;
+      let recording = false;
+      const micBtn = document.getElementById('mic-rec');
+      const recStatus = document.getElementById('rec-status');
+
+      micBtn.addEventListener('click', async () => {
+        if (!recording) {
+          try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream);
+            audioChunks = [];
+            mediaRecorder.ondataavailable = ev => { if (ev.data.size > 0) audioChunks.push(ev.data); };
+            mediaRecorder.onstop = () => {
+              audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+              const url = URL.createObjectURL(audioBlob);
+              document.getElementById('audio-preview').innerHTML =
+                '<audio controls src="' + url + '"></audio>';
+              if (audioBlob.size > MAX_PAYLOAD_BYTES) {
+                setMsg('ההקלטה גדולה מ-200KB (' + Math.round(audioBlob.size / 1024) + 'KB). נסי הקלטה קצרה יותר.', 'error');
+                document.getElementById('submit-audio').disabled = true;
+              } else {
+                document.getElementById('submit-audio').disabled = false;
+                setMsg('');
+              }
+              recStatus.innerText = 'ההקלטה הסתיימה';
+              try { mediaRecorder.stream.getTracks().forEach(t => t.stop()); } catch (e) {}
+            };
+            mediaRecorder.start();
+            recording = true;
+            micBtn.innerText = '⏹ עצור/י';
+            recStatus.innerText = 'מקליטה…';
+            setMsg('');
+          } catch (err) {
+            setMsg('אין הרשאה למיקרופון.', 'error');
+          }
+        } else {
+          try { mediaRecorder.stop(); } catch (e) {}
+          recording = false;
+          micBtn.innerText = '🎙️ התחל/י הקלטה';
+        }
+      });
+
+      document.getElementById('submit-audio').addEventListener('click', async () => {
+        if (!audioBlob) return;
+        if (audioBlob.size > MAX_PAYLOAD_BYTES) {
+          setMsg('ההקלטה גדולה מדי.', 'error');
+          return;
+        }
+        setMsg('שולחת…');
+        const reader = new FileReader();
+        reader.onload = async () => {
+          await saveAddition({ action: 'add', code: codeStr, type: 'audio', content: reader.result, timestamp: new Date().toISOString() });
+          setMsg('נשמר. רענני את הדף כדי לראות.', 'success');
+          document.getElementById('audio-preview').innerHTML = '';
+          audioBlob = null;
+          document.getElementById('submit-audio').disabled = true;
+        };
+        reader.readAsDataURL(audioBlob);
+      });
+    }
+
+    (async () => {
+      if (!code) {
+        document.getElementById('page').innerHTML =
+          '<div class="error-msg">קוד לא חוקי. יש לפתוח דרך קישור עם <code>?code=XXXX</code></div>' +
+          '<div class="drawer-footer"><a href="archive.html">→ לארכיון המלא</a></div>';
+        return;
+      }
+
+      const data = await fetchByCode(code);
+      if (!data || !data.record) {
+        document.getElementById('page').innerHTML =
+          '<div class="error-msg">לא נמצאה מגירה עם קוד ' + escapeHtml(code) + '.</div>' +
+          '<div class="drawer-footer"><a href="archive.html">→ לארכיון המלא</a></div>';
+        return;
+      }
+      renderDrawer(data.record);
+    })();
+  </script>
+</body>
+</html>
