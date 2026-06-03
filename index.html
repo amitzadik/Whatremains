@@ -192,24 +192,29 @@
 
   
 
-  <!-- Screen 10: Drawer Wall -->
-  <div id="screen-10" class="screen" style="padding: 0; overflow: hidden;">
-    <div id="grid-container" style="position: relative; width: 100vw; height: 100vh; overflow: hidden; background: var(--bg-cream);">
+  <!-- Screen 10: Drawer Wall (zoom-out → pan) -->
+  <div id="screen-10" class="screen" style="padding: 0;">
+    <div class="sticky-container">
+      <div id="grid-container" style="position: relative; width: 100vw; height: 100vh; overflow: hidden; background: var(--bg-cream); display: flex; align-items: center; justify-content: center;">
 
-      <!-- Header (always visible) -->
-      <div id="search-container" style="position: absolute; top: 0; left: 0; width: 100%; padding: 1.5rem 2rem; box-sizing: border-box; display: flex; justify-content: space-between; align-items: center; z-index: 20; background: linear-gradient(to bottom, var(--bg-cream) 60%, transparent); pointer-events: none;">
-        <div style="display: flex; align-items: center; gap: 1.5rem; pointer-events: auto;">
-          <div class="title" style="margin-bottom: 0;">ארכיון לנכדים</div>
-          <input type="text" id="drawer-search" placeholder="חפש/י שם..." class="input-field" style="width: 250px; margin-bottom: 0;">
+        <div id="scroll-hint-10" style="position: absolute; bottom: 5%; width: 100%; text-align: center; color: var(--gray); font-size: 1.5rem; animation: pulse 2s infinite; z-index: 10;">
+          ↓ גלול/י לאחור ↓
         </div>
-        <button id="btn-restart" style="background: transparent; border: 1px solid var(--ink); color: var(--ink); padding: 0.5rem 1rem; font-family: var(--font-main); font-size: 1rem; cursor: pointer; transition: background 0.2s; pointer-events: auto;">חזור להתחלה</button>
-      </div>
 
-      <!-- The wall (pan target) -->
-      <div id="zoom-wall" style="position: absolute; top: 50%; left: 50%; display: grid; grid-template-columns: repeat(5, 220px); gap: 18px; width: max-content; transform-origin: 0 0; user-select: none;">
-        <!-- Drawers injected here -->
+        <div id="search-container" style="position: absolute; top: 0; left: 0; width: 100%; padding: 1.5rem 2rem; box-sizing: border-box; display: flex; justify-content: space-between; align-items: center; z-index: 20; background: linear-gradient(to bottom, var(--bg-cream) 60%, transparent); opacity: 0; pointer-events: none; transition: opacity 0.5s;">
+          <div style="display: flex; align-items: center; gap: 1.5rem;">
+            <div class="title" style="margin-bottom: 0;">ארכיון לנכדים</div>
+            <input type="text" id="drawer-search" placeholder="חפש/י שם..." class="input-field" style="width: 250px; margin-bottom: 0;">
+          </div>
+          <button id="btn-restart" style="background: transparent; border: 1px solid var(--ink); color: var(--ink); padding: 0.5rem 1rem; font-family: var(--font-main); font-size: 1rem; cursor: pointer; transition: background 0.2s;">חזור להתחלה</button>
+        </div>
+
+        <div id="zoom-wall" style="display: grid; grid-template-columns: repeat(5, 220px); gap: 18px; width: max-content; transform-origin: center center; user-select: none;">
+          <!-- Drawers injected here -->
+        </div>
       </div>
     </div>
+    <div class="scroll-spacer" style="height: 250vh;"></div>
   </div>
 
   <!-- Modal for Code Input -->
@@ -753,10 +758,13 @@
   
 
   
-  // --- Screen 10 (Drawer Wall — pannable) ---
+  // --- Screen 10 (Drawer Wall — scroll zoom-out then free pan) ---
   async function initScreen10() {
     const wall = document.getElementById('zoom-wall');
     const gridContainer = document.getElementById('grid-container');
+    const screen10 = document.getElementById('screen-10');
+    const searchContainer = document.getElementById('search-container');
+    const hint = document.getElementById('scroll-hint-10');
     wall.innerHTML = '';
     wall.style.transform = '';
 
@@ -788,7 +796,18 @@
       isUser: true,
       audioBlob: state.audioBlob
     };
-    const insertAt = Math.floor(others.length / 2);
+
+    // Place user at the cell closest to grid center
+    const cols = 5;
+    const total = others.length + 1;
+    const rows = Math.ceil(total / cols);
+    let insertAt;
+    if (rows <= 1) {
+      insertAt = Math.floor(total / 2);
+    } else {
+      insertAt = Math.floor(rows / 2) * cols + Math.floor(cols / 2);
+      if (insertAt > others.length) insertAt = others.length;
+    }
     const allDrawers = [
       ...others.slice(0, insertAt).map(v => ({ ...v, isUser: false })),
       userEntry,
@@ -830,45 +849,76 @@
       wall.appendChild(d);
     });
 
+    screen10.scrollTop = 0;
+
+    const startScale = 5.5;
+    const endScale = 1.0;
+    let effectiveEndScale = endScale;
+    let currentScale = startScale;
+    let isAtEnd = false;
+
     const applyTransform = () => {
-      wall.style.transform = `translate(${panX}px, ${panY}px)`;
+      wall.style.transform = `scale(${currentScale}) translate(${panX}px, ${panY}px)`;
+    };
+
+    const computeEffectiveEndScale = () => {
+      const naturalW = wall.offsetWidth;
+      if (naturalW > 0) {
+        effectiveEndScale = Math.min(endScale, window.innerWidth / naturalW);
+      }
     };
 
     const clampPan = () => {
-      const w = wall.offsetWidth;
-      const h = wall.offsetHeight;
-      const vw = gridContainer.offsetWidth;
-      const vh = gridContainer.offsetHeight;
-      const maxPanX = Math.max(0, (w - vw) / 2);
-      const maxPanY = Math.max(0, (h - vh) / 2);
+      const scaledW = wall.offsetWidth * currentScale;
+      const scaledH = wall.offsetHeight * currentScale;
+      const maxPanX = Math.max(0, (scaledW - window.innerWidth) / 2 / currentScale);
+      const maxPanY = Math.max(0, (scaledH - window.innerHeight) / 2 / currentScale);
       panX = Math.max(-maxPanX, Math.min(maxPanX, panX));
       panY = Math.max(-maxPanY, Math.min(maxPanY, panY));
     };
 
-    wall.style.cursor = 'grab';
+    wall.style.transform = `scale(${startScale})`;
+    searchContainer.style.opacity = '0';
+    searchContainer.style.pointerEvents = 'none';
+    if (hint) hint.style.opacity = '1';
+    wall.style.cursor = '';
 
-    requestAnimationFrame(() => {
-      const w = wall.offsetWidth;
-      const h = wall.offsetHeight;
-      wall.style.marginLeft = (-w / 2) + 'px';
-      wall.style.marginTop = (-h / 2) + 'px';
+    requestAnimationFrame(computeEffectiveEndScale);
 
-      const userDrawer = wall.querySelector('.active-drawer');
-      if (userDrawer) {
-        const containerRect = gridContainer.getBoundingClientRect();
-        const userRect = userDrawer.getBoundingClientRect();
-        const targetX = containerRect.left + containerRect.width / 2;
-        const targetY = containerRect.top + containerRect.height / 2;
-        const currentX = userRect.left + userRect.width / 2;
-        const currentY = userRect.top + userRect.height / 2;
-        panX = targetX - currentX;
-        panY = targetY - currentY;
-        clampPan();
-        applyTransform();
+    screen10.onscroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = screen10;
+      const progress = scrollTop / (scrollHeight - clientHeight || 1);
+
+      if (hint) hint.style.opacity = progress > 0.05 ? '0' : '1';
+
+      if (effectiveEndScale >= endScale || wall.offsetWidth === 0) {
+        computeEffectiveEndScale();
       }
-    });
+
+      currentScale = startScale - ((startScale - effectiveEndScale) * progress);
+
+      isAtEnd = progress >= 0.999;
+      if (!isAtEnd) {
+        panX = 0;
+        panY = 0;
+      } else {
+        clampPan();
+      }
+
+      applyTransform();
+      wall.style.cursor = isAtEnd ? (isPanning ? 'grabbing' : 'grab') : '';
+
+      if (progress > 0.95) {
+        searchContainer.style.opacity = '1';
+        searchContainer.style.pointerEvents = 'auto';
+      } else {
+        searchContainer.style.opacity = '0';
+        searchContainer.style.pointerEvents = 'none';
+      }
+    };
 
     wall.onmousedown = (e) => {
+      if (!isAtEnd) return;
       isPanning = true;
       dragStartX = e.clientX;
       dragStartY = e.clientY;
@@ -881,9 +931,9 @@
 
     wall.onmousemove = (e) => {
       if (!isPanning) return;
-      const dx = e.clientX - dragStartX;
-      const dy = e.clientY - dragStartY;
-      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) dragMoved = true;
+      const dx = (e.clientX - dragStartX) / currentScale;
+      const dy = (e.clientY - dragStartY) / currentScale;
+      if (Math.abs(e.clientX - dragStartX) > 3 || Math.abs(e.clientY - dragStartY) > 3) dragMoved = true;
       panX = panStartX + dx;
       panY = panStartY + dy;
       clampPan();
@@ -893,7 +943,7 @@
     const stopPan = () => {
       if (!isPanning) return;
       isPanning = false;
-      wall.style.cursor = 'grab';
+      wall.style.cursor = isAtEnd ? 'grab' : '';
       if (dragMoved) justDragged = true;
     };
 
