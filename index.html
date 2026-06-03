@@ -192,33 +192,24 @@
 
   
 
-  <!-- Screen 10: Drawer Wall Zoom -->
-  <div id="screen-10" class="screen">
-    <div class="sticky-container">
-      <div id="grid-container" style="position: relative; width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center; overflow: hidden; background: var(--bg-cream);">
-        <div id="scroll-hint-10" style="position: absolute; bottom: 5%; width: 100%; text-align: center; color: var(--gray); font-size: 1.5rem; animation: pulse 2s infinite; z-index: 10;">
-          ↓ גלול/י לאחור ↓
-        </div>
-        
-        <!-- Search Bar & Restart (fades in at the end) -->
-        <div id="search-container" style="position: absolute; top: 5%; left: 0; width: 100%; padding: 0 3rem; box-sizing: border-box; display: flex; justify-content: space-between; align-items: center; z-index: 20; opacity: 0; pointer-events: none; transition: opacity 0.5s;">
-          
-          <div style="display: flex; align-items: center; gap: 1.5rem;">
-            <div class="title" style="margin-bottom: 0;">ארכיון לנכדים</div>
-            <input type="text" id="drawer-search" placeholder="חפש/י שם..." class="input-field" style="width: 250px; margin-bottom: 0;">
-          </div>
+  <!-- Screen 10: Drawer Wall -->
+  <div id="screen-10" class="screen" style="padding: 0; overflow: hidden;">
+    <div id="grid-container" style="position: relative; width: 100vw; height: 100vh; overflow: hidden; background: var(--bg-cream);">
 
-          <button id="btn-restart" style="background: transparent; border: 1px solid var(--ink); color: var(--ink); padding: 0.5rem 1rem; font-family: var(--font-main); font-size: 1rem; cursor: pointer; transition: background 0.2s;">חזור להתחלה</button>
-          
+      <!-- Header (always visible) -->
+      <div id="search-container" style="position: absolute; top: 0; left: 0; width: 100%; padding: 1.5rem 2rem; box-sizing: border-box; display: flex; justify-content: space-between; align-items: center; z-index: 20; background: linear-gradient(to bottom, var(--bg-cream) 60%, transparent); pointer-events: none;">
+        <div style="display: flex; align-items: center; gap: 1.5rem; pointer-events: auto;">
+          <div class="title" style="margin-bottom: 0;">ארכיון לנכדים</div>
+          <input type="text" id="drawer-search" placeholder="חפש/י שם..." class="input-field" style="width: 250px; margin-bottom: 0;">
         </div>
+        <button id="btn-restart" style="background: transparent; border: 1px solid var(--ink); color: var(--ink); padding: 0.5rem 1rem; font-family: var(--font-main); font-size: 1rem; cursor: pointer; transition: background 0.2s; pointer-events: auto;">חזור להתחלה</button>
+      </div>
 
-        <!-- The scalable wall -->
-        <div id="zoom-wall" style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 2rem; transform-origin: center center; width: max-content;">
-           <!-- Drawers injected here -->
-        </div>
+      <!-- The wall (pan target) -->
+      <div id="zoom-wall" style="position: absolute; top: 50%; left: 50%; display: grid; grid-template-columns: repeat(5, 220px); gap: 18px; width: max-content; transform-origin: 0 0; user-select: none;">
+        <!-- Drawers injected here -->
       </div>
     </div>
-    <div class="scroll-spacer" style="height: 200vh;"></div>
   </div>
 
   <!-- Modal for Code Input -->
@@ -762,13 +753,13 @@
   
 
   
-  // --- Screen 10 (Grid Zoom & Search) ---
+  // --- Screen 10 (Drawer Wall — pannable) ---
   async function initScreen10() {
     const wall = document.getElementById('zoom-wall');
     const gridContainer = document.getElementById('grid-container');
     wall.innerHTML = '';
+    wall.style.transform = '';
 
-    // Loading indicator
     let loadingEl = document.getElementById('wall-loading');
     if (!loadingEl) {
       loadingEl = document.createElement('div');
@@ -779,70 +770,57 @@
     loadingEl.innerText = 'טוען...';
     loadingEl.style.display = 'block';
 
-    const totalDrawers = 25;
-    const centerIndex = 12;
-    const slotsForOthers = totalDrawers - 1;
-
-    // Fetch fresh data; fall back to pastViewers on failure
     const data = await fetchSheetData();
 
-    let rawViewers;
+    let others;
     if (data && Array.isArray(data.viewers) && data.viewers.length > 0) {
-      rawViewers = data.viewers
-        .filter(v => v && v.code !== state.userCode && v.name)
-        .map(v => ({ name: v.name, code: v.code, archive: v.legacy_text || '' }));
+      others = data.viewers
+        .filter(v => v && v.name && v.code !== state.userCode)
+        .map(v => ({ name: v.name, code: String(v.code || '').padStart(4, '0'), archive: v.legacy_text || '' }));
     } else {
-      rawViewers = pastViewers.map(v => ({ name: v.name, code: v.code, archive: v.archive }));
+      others = pastViewers.map(v => ({ name: v.name, code: v.code, archive: v.archive }));
     }
 
-    if (rawViewers.length === 0) {
-      rawViewers = pastViewers.map(v => ({ name: v.name, code: v.code, archive: v.archive }));
-    }
-
-    let viewersPool = rawViewers.length > slotsForOthers
-      ? rawViewers.slice(-slotsForOthers)
-      : [...rawViewers];
-
-    while (viewersPool.length < slotsForOthers) {
-      viewersPool.push(rawViewers[Math.floor(Math.random() * rawViewers.length)]);
-    }
-    viewersPool = viewersPool.sort(() => Math.random() - 0.5);
+    const userEntry = {
+      name: state.name,
+      code: state.userCode,
+      archive: state.legacyText,
+      isUser: true,
+      audioBlob: state.audioBlob
+    };
+    const insertAt = Math.floor(others.length / 2);
+    const allDrawers = [
+      ...others.slice(0, insertAt).map(v => ({ ...v, isUser: false })),
+      userEntry,
+      ...others.slice(insertAt).map(v => ({ ...v, isUser: false }))
+    ];
 
     loadingEl.style.display = 'none';
 
-    let allDrawers = [];
-    let poolIndex = 0;
+    let panX = 0, panY = 0;
+    let isPanning = false;
+    let dragStartX = 0, dragStartY = 0;
+    let panStartX = 0, panStartY = 0;
+    let dragMoved = false;
+    let justDragged = false;
 
-    for (let i = 0; i < totalDrawers; i++) {
-      if (i === centerIndex) {
-        allDrawers.push({ name: state.name, code: state.userCode, archive: state.legacyText, isUser: true, audioBlob: state.audioBlob });
-      } else {
-        const v = viewersPool[poolIndex];
-        allDrawers.push({ name: v.name, code: v.code, archive: v.archive, isUser: false });
-        poolIndex++;
-      }
-    }
-    
-    // Render grid
     allDrawers.forEach(viewer => {
       const d = document.createElement('div');
       d.className = 'wall-drawer' + (viewer.isUser ? ' active-drawer' : '');
-      // Adding a data attribute for search
       d.setAttribute('data-name', viewer.name);
-      
       d.innerHTML = `<div class="wall-plate">${viewer.name}</div>`;
-      
+
       d.addEventListener('click', () => {
-        if(viewer.isUser) {
+        if (justDragged) { justDragged = false; return; }
+        if (viewer.isUser) {
           showContent(viewer.name, viewer.archive, viewer.audioBlob);
         } else {
-          // Open code modal
           targetDrawerCode = viewer.code;
           targetDrawerText = viewer.archive;
           targetDrawerName = viewer.name;
-          targetDrawerAudio = viewer.audioBlob; // may be undefined
+          targetDrawerAudio = viewer.audioBlob;
           activeDrawerEl = d;
-          
+
           document.getElementById('drawer-code-input').value = '';
           document.getElementById('err-msg').innerText = '';
           document.getElementById('code-modal').classList.add('active');
@@ -852,100 +830,60 @@
       wall.appendChild(d);
     });
 
-    const screen10 = document.getElementById('screen-10');
-    const searchContainer = document.getElementById('search-container');
-    const hint = document.getElementById('scroll-hint-10');
-    
-    screen10.scrollTop = 0;
-    
-    // Calculate initial scale to fit exactly the center drawer in view
-    // A wall-drawer is around 180px width + gap 2rem (32px).
-    // We can just use a fixed scale that works well.
-    const startScale = 5.5;
-    const endScale = 1.0;
-    let effectiveEndScale = endScale;
-    let currentScale = startScale;
-    let panX = 0, panY = 0;
-    let isAtEnd = false;
-    let isPanning = false;
-    let dragStartX = 0, dragStartY = 0;
-    let panStartX = 0, panStartY = 0;
-
     const applyTransform = () => {
-      wall.style.transform = `scale(${currentScale}) translate(${panX}px, ${panY}px)`;
-    };
-
-    const computeEffectiveEndScale = () => {
-      const naturalW = wall.offsetWidth;
-      if (naturalW > 0) {
-        effectiveEndScale = Math.min(endScale, window.innerWidth / naturalW);
-      }
+      wall.style.transform = `translate(${panX}px, ${panY}px)`;
     };
 
     const clampPan = () => {
-      const scaledW = wall.offsetWidth * currentScale;
-      const scaledH = wall.offsetHeight * currentScale;
-      const maxPanX = Math.max(0, (scaledW - window.innerWidth) / 2 / currentScale);
-      const maxPanY = Math.max(0, (scaledH - window.innerHeight) / 2 / currentScale);
+      const w = wall.offsetWidth;
+      const h = wall.offsetHeight;
+      const vw = gridContainer.offsetWidth;
+      const vh = gridContainer.offsetHeight;
+      const maxPanX = Math.max(0, (w - vw) / 2);
+      const maxPanY = Math.max(0, (h - vh) / 2);
       panX = Math.max(-maxPanX, Math.min(maxPanX, panX));
       panY = Math.max(-maxPanY, Math.min(maxPanY, panY));
     };
 
-    wall.style.transform = `scale(${startScale})`;
-    searchContainer.style.opacity = '0';
-    searchContainer.style.pointerEvents = 'none';
-    if(hint) hint.style.opacity = '1';
-    wall.style.cursor = '';
+    wall.style.cursor = 'grab';
 
-    requestAnimationFrame(computeEffectiveEndScale);
+    requestAnimationFrame(() => {
+      const w = wall.offsetWidth;
+      const h = wall.offsetHeight;
+      wall.style.marginLeft = (-w / 2) + 'px';
+      wall.style.marginTop = (-h / 2) + 'px';
 
-    screen10.onscroll = () => {
-      const { scrollTop, scrollHeight, clientHeight } = screen10;
-      const progress = scrollTop / (scrollHeight - clientHeight || 1);
-
-      if(hint) hint.style.opacity = progress > 0.05 ? '0' : '1';
-
-      if (effectiveEndScale >= endScale || wall.offsetWidth === 0) {
-        computeEffectiveEndScale();
-      }
-
-      currentScale = startScale - ((startScale - effectiveEndScale) * progress);
-
-      isAtEnd = progress >= 0.999;
-      if (!isAtEnd) {
-        panX = 0;
-        panY = 0;
-      } else {
+      const userDrawer = wall.querySelector('.active-drawer');
+      if (userDrawer) {
+        const containerRect = gridContainer.getBoundingClientRect();
+        const userRect = userDrawer.getBoundingClientRect();
+        const targetX = containerRect.left + containerRect.width / 2;
+        const targetY = containerRect.top + containerRect.height / 2;
+        const currentX = userRect.left + userRect.width / 2;
+        const currentY = userRect.top + userRect.height / 2;
+        panX = targetX - currentX;
+        panY = targetY - currentY;
         clampPan();
+        applyTransform();
       }
-
-      applyTransform();
-      wall.style.cursor = isAtEnd ? (isPanning ? 'grabbing' : 'grab') : '';
-
-      if (progress > 0.95) {
-        searchContainer.style.opacity = '1';
-        searchContainer.style.pointerEvents = 'auto';
-      } else {
-        searchContainer.style.opacity = '0';
-        searchContainer.style.pointerEvents = 'none';
-      }
-    };
+    });
 
     wall.onmousedown = (e) => {
-      if (!isAtEnd) return;
       isPanning = true;
       dragStartX = e.clientX;
       dragStartY = e.clientY;
       panStartX = panX;
       panStartY = panY;
+      dragMoved = false;
       wall.style.cursor = 'grabbing';
       e.preventDefault();
     };
 
     wall.onmousemove = (e) => {
       if (!isPanning) return;
-      const dx = (e.clientX - dragStartX) / currentScale;
-      const dy = (e.clientY - dragStartY) / currentScale;
+      const dx = e.clientX - dragStartX;
+      const dy = e.clientY - dragStartY;
+      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) dragMoved = true;
       panX = panStartX + dx;
       panY = panStartY + dy;
       clampPan();
@@ -955,13 +893,13 @@
     const stopPan = () => {
       if (!isPanning) return;
       isPanning = false;
-      wall.style.cursor = isAtEnd ? 'grab' : '';
+      wall.style.cursor = 'grab';
+      if (dragMoved) justDragged = true;
     };
 
     wall.onmouseup = stopPan;
     wall.onmouseleave = stopPan;
-    
-    // Search functionality
+
     const searchInput = document.getElementById('drawer-search');
     searchInput.value = '';
     searchInput.oninput = (e) => {
@@ -971,35 +909,36 @@
         const name = d.getAttribute('data-name').toLowerCase();
         if (q === '') {
           d.style.opacity = '1';
-          d.style.transform = 'scale(1)';
+          d.style.outline = '';
         } else if (name.includes(q)) {
           d.style.opacity = '1';
-          d.style.transform = 'scale(1.05)';
+          d.style.outline = '2px solid var(--red)';
         } else {
           d.style.opacity = '0.3';
-          d.style.transform = 'scale(1)';
+          d.style.outline = '';
         }
       });
     };
-    
-    // Re-bind restart button
+
     const btnRestart = document.getElementById('btn-restart');
     if (btnRestart) {
       btnRestart.onclick = () => {
-        // Reset state
-        state = {
-          name: '', email: '',
-          answers: {}, dontKnow: {},
-          legacyText: '',
-          userCode: ''
-        };
+        state.name = '';
+        state.email = '';
+        state.answers = Array(7).fill('');
+        state.dontKnow = Array(7).fill(false);
+        state.currentQuestion = 0;
+        state.legacyText = '';
+        state.audioBlob = null;
+        state.userCode = '';
+
         document.getElementById('user-name').value = '';
         document.getElementById('user-email').value = '';
-        
-        // Hide modals
+        document.getElementById('legacy-text').value = '';
+
         document.getElementById('code-modal').classList.remove('active');
         document.getElementById('content-modal').classList.remove('active');
-        
+
         showScreen(0);
       };
     }
