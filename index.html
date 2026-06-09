@@ -294,10 +294,12 @@
   const qInput = document.getElementById('q-input');
   const btnNextQ = document.getElementById('btn-next-q');
   const btnDkQ = document.getElementById('btn-dk-q');
+  const qCard = document.querySelector('#screen-1 .q-card');
 
   function initScreen1() {
     qDate.innerText = state.date;
     qName.innerText = state.name;
+    qCard.classList.remove('exit-down', 'enter-from-top');
     renderQuestion();
   }
 
@@ -317,15 +319,37 @@
   function handleAnswer(isDontKnow) {
     state.answers[state.currentQuestion] = isDontKnow ? null : qInput.value;
     state.dontKnow[state.currentQuestion] = isDontKnow;
-    state.currentQuestion++;
 
-    if (state.currentQuestion >= questions.length) {
-      initScreen2();
-      showScreen(2);
-      return;
-    }
+    btnNextQ.disabled = true;
+    btnDkQ.disabled = true;
 
-    renderQuestion();
+    qCard.classList.add('exit-down');
+
+    setTimeout(() => {
+      state.currentQuestion++;
+
+      if (state.currentQuestion >= questions.length) {
+        qCard.classList.remove('exit-down');
+        btnDkQ.disabled = false;
+        initScreen2();
+        showScreen(2);
+        return;
+      }
+
+      renderQuestion();
+      qCard.classList.remove('exit-down');
+      qCard.classList.add('enter-from-top');
+
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          qCard.classList.remove('enter-from-top');
+        });
+      });
+
+      setTimeout(() => {
+        btnDkQ.disabled = false;
+      }, 550);
+    }, 500);
   }
 
   btnNextQ.addEventListener('click', () => {

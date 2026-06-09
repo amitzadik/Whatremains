@@ -131,8 +131,28 @@
   .center-container { margin: auto; max-width: 600px; width: 100%; display: flex; flex-direction: column; justify-content: center; min-height: 80vh; }
 
   /* Screen 1 & 6 specific (Card Design) */
-  #screen-1, #screen-6 { padding: 2vh 2vw; }
-  .q-card { width: 100%; height: 100%; max-width: none; margin: 0; background-color: var(--bg-cream); border: 1px solid var(--gray); display: flex; flex-direction: column; padding: 1.5rem; }
+  #screen-1, #screen-6 { padding: 2vh 2vw; justify-content: center; align-items: center; overflow: hidden; }
+  .q-card {
+    width: min(969px, calc(100vw - 4rem), calc((100vh - 4rem) * 969 / 1370));
+    aspect-ratio: 969 / 1370;
+    height: auto;
+    max-width: none;
+    margin: 0;
+    background-color: var(--bg-cream);
+    border: 1px solid var(--gray);
+    display: flex;
+    flex-direction: column;
+    padding: 1.5rem;
+    box-sizing: border-box;
+    transition: transform 0.5s cubic-bezier(0.55, 0, 0.45, 1);
+  }
+  .q-card.exit-down {
+    transform: translateY(110vh);
+  }
+  .q-card.enter-from-top {
+    transform: translateY(-110vh);
+    transition: none;
+  }
   
   .q-header-row { display: flex; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 0.5rem 0; margin-bottom: 2rem; }
   .q-header-row .q-cell { border-left: 1px solid var(--line); padding: 0 1rem; flex: 1; display: flex; flex-direction: column; justify-content: flex-start; text-align: right; }
