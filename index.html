@@ -33,6 +33,10 @@
             <span class="q-label">שם העונה</span>
             <span class="q-value" id="q-name"></span>
           </div>
+          <div class="q-cell q-cell-on">
+            <span class="q-label">על</span>
+            <span class="q-value">סבא וסבתא</span>
+          </div>
           <div class="q-cell q-cell-date">
             <span class="q-label">תאריך</span>
             <span class="q-value" id="q-date"></span>
@@ -103,6 +107,10 @@
         <div class="q-cell q-cell-name">
           <span class="q-label">שם העונה</span>
           <span class="q-value" id="legacy-name"></span>
+        </div>
+        <div class="q-cell q-cell-on">
+          <span class="q-label">על</span>
+          <span class="q-value">סבא וסבתא</span>
         </div>
         <div class="q-cell q-cell-date">
           <span class="q-label">תאריך</span>
@@ -308,20 +316,17 @@
     qNum.innerText = (idx + 1) + '/' + questions.length;
     qText.innerText = questions[idx];
     qInput.value = '';
-    btnNextQ.disabled = true;
     qInput.focus();
   }
 
-  qInput.addEventListener('input', () => {
-    btnNextQ.disabled = qInput.value.trim() === '';
-  });
+  let isTransitioning = false;
 
   function handleAnswer(isDontKnow) {
+    if (isTransitioning) return;
+    isTransitioning = true;
+
     state.answers[state.currentQuestion] = isDontKnow ? null : qInput.value;
     state.dontKnow[state.currentQuestion] = isDontKnow;
-
-    btnNextQ.disabled = true;
-    btnDkQ.disabled = true;
 
     qCard.classList.add('exit-down');
 
@@ -330,7 +335,7 @@
 
       if (state.currentQuestion >= questions.length) {
         qCard.classList.remove('exit-down');
-        btnDkQ.disabled = false;
+        isTransitioning = false;
         initScreen2();
         showScreen(2);
         return;
@@ -347,18 +352,16 @@
       });
 
       setTimeout(() => {
-        btnDkQ.disabled = false;
+        isTransitioning = false;
       }, 550);
     }, 500);
   }
 
   btnNextQ.addEventListener('click', () => {
-    if (btnNextQ.disabled) return;
     if (qInput.value.trim() === '') return;
     handleAnswer(false);
   });
   btnDkQ.addEventListener('click', () => {
-    if (btnDkQ.disabled) return;
     handleAnswer(true);
   });
 
@@ -418,6 +421,10 @@
           <div class="q-cell q-cell-name">
             <span class="q-label">שם העונה</span>
             <span class="q-value" style="font-size: 1rem;">${state.name}</span>
+          </div>
+          <div class="q-cell q-cell-on">
+            <span class="q-label">על</span>
+            <span class="q-value" style="font-size: 1rem;">סבא וסבתא</span>
           </div>
           <div class="q-cell q-cell-date">
             <span class="q-label">תאריך</span>
